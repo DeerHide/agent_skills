@@ -1,0 +1,833 @@
+openapi: 3.1.2
+info:
+  title: Example API
+  version: 1.0.0
+  description: |
+    This is an example OpenAPI specification demonstrating best practices for API design.
+    
+    ## Features
+    - RESTful resource-based endpoints
+    - Consistent naming conventions (snake_case)
+    - Comprehensive error handling
+    - Pagination support
+    - Filtering and sorting capabilities
+    
+  contact:
+    name: API Support
+    email: support@example.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: https://api.example.com/v1
+    description: Production server
+  - url: https://staging-api.example.com/v1
+    description: Staging server
+
+tags:
+  - name: orders
+    description: Order management operations
+  - name: customers
+    description: Customer management operations
+  - name: products
+    description: Product catalog operations
+
+security:
+  - bearer_auth: []
+
+paths:
+  /orders:
+    get:
+      operationId: listOrders
+      summary: List all orders
+      description: Retrieve a paginated list of orders with optional filtering and sorting.
+      tags:
+        - orders
+      parameters:
+        - $ref: '#/components/parameters/LimitParam'
+        - $ref: '#/components/parameters/OffsetParam'
+        - $ref: '#/components/parameters/FieldsParam'
+        - name: status
+          in: query
+          description: Filter orders by status
+          required: false
+          schema:
+            type: string
+            enum:
+              - pending
+              - processing
+              - completed
+              - cancelled
+        - name: sort
+          in: query
+          description: Sort orders by field (prefix with - for descending)
+          required: false
+          schema:
+            type: string
+            example: -created_at
+      responses:
+        '200':
+          description: Successfully retrieved orders
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - pagination
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Order'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+                additionalProperties: false
+              example:
+                data:
+                  - id: 550e8400-e29b-41d4-a716-446655440000
+                    organization_id: 123e4567-e89b-12d3-a456-426614174000
+                    customer_id: 7c9e6679-7425-40de-944b-e07fc1f90ae7
+                    status: processing
+                    total_amount: 99.99
+                    currency: USD
+                    created_at: '2026-01-22T10:30:00Z'
+                    updated_at: '2026-01-22T10:30:00Z'
+                pagination:
+                  limit: 20
+                  offset: 0
+                  total: 150
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    post:
+      operationId: createOrder
+      summary: Create a new order
+      description: Creates a new order for a customer.
+      tags:
+        - orders
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateOrderRequest'
+            example:
+              organization_id: 123e4567-e89b-12d3-a456-426614174000
+              customer_id: 7c9e6679-7425-40de-944b-e07fc1f90ae7
+              items:
+                - product_id: 9c8e7679-8425-40de-944b-e07fc1f90ae8
+                  quantity: 2
+                  unit_price: 49.99
+              currency: USD
+      responses:
+        '201':
+          description: Order created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+              example:
+                id: 550e8400-e29b-41d4-a716-446655440000
+                organization_id: 123e4567-e89b-12d3-a456-426614174000
+                customer_id: 7c9e6679-7425-40de-944b-e07fc1f90ae7
+                status: pending
+                total_amount: 99.98
+                currency: USD
+                created_at: '2026-01-22T10:30:00Z'
+                updated_at: '2026-01-22T10:30:00Z'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /orders/{order_id}:
+    get:
+      operationId: getOrderById
+      summary: Get order by ID
+      description: Retrieve detailed information about a specific order.
+      tags:
+        - orders
+      parameters:
+        - $ref: '#/components/parameters/OrderIdParam'
+      responses:
+        '200':
+          description: Successfully retrieved order
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    put:
+      operationId: updateOrder
+      summary: Update an order
+      description: Update an existing order with new information.
+      tags:
+        - orders
+      parameters:
+        - $ref: '#/components/parameters/OrderIdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateOrderRequest'
+      responses:
+        '200':
+          description: Order updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    delete:
+      operationId: deleteOrder
+      summary: Delete an order
+      description: Permanently delete an order from the system.
+      tags:
+        - orders
+      parameters:
+        - $ref: '#/components/parameters/OrderIdParam'
+      responses:
+        '204':
+          description: Order deleted successfully
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /orders/{order_id}/cancel:
+    post:
+      operationId: cancelOrder
+      summary: Cancel an order
+      description: Cancel a pending or processing order. This is an action endpoint using a sub-resource pattern.
+      tags:
+        - orders
+      parameters:
+        - $ref: '#/components/parameters/OrderIdParam'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+                  description: Reason for cancellation
+                  example: Customer requested cancellation
+      responses:
+        '200':
+          description: Order cancelled successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /customers:
+    get:
+      operationId: listCustomers
+      summary: List all customers
+      description: Retrieve a paginated list of customers with optional filtering.
+      tags:
+        - customers
+      parameters:
+        - $ref: '#/components/parameters/LimitParam'
+        - $ref: '#/components/parameters/OffsetParam'
+        - $ref: '#/components/parameters/FieldsParam'
+        - name: status
+          in: query
+          description: Filter customers by status
+          required: false
+          schema:
+            type: string
+            enum:
+              - active
+              - inactive
+              - suspended
+      responses:
+        '200':
+          description: Successfully retrieved customers
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - pagination
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Customer'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+                additionalProperties: false
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    post:
+      operationId: createCustomer
+      summary: Create a new customer
+      description: Register a new customer in the system.
+      tags:
+        - customers
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCustomerRequest'
+            example:
+              organization_id: 123e4567-e89b-12d3-a456-426614174000
+              email: customer@example.com
+              first_name: John
+              last_name: Doe
+      responses:
+        '201':
+          description: Customer created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Customer'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /products:
+    get:
+      operationId: listProducts
+      summary: List all products
+      description: Retrieve a paginated list of products from the catalog.
+      tags:
+        - products
+      parameters:
+        - $ref: '#/components/parameters/LimitParam'
+        - $ref: '#/components/parameters/OffsetParam'
+        - name: category
+          in: query
+          description: Filter products by category
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successfully retrieved products
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - pagination
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Product'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+                additionalProperties: false
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+components:
+  securitySchemes:
+    bearer_auth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT authentication token
+
+  parameters:
+    OrderIdParam:
+      name: order_id
+      in: path
+      required: true
+      description: Unique identifier for the order (UUIDv4 format)
+      schema:
+        type: string
+        format: uuid
+        pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
+        example: 550e8400-e29b-41d4-a716-446655440000
+
+    LimitParam:
+      name: limit
+      in: query
+      description: Maximum number of items to return
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+        example: 20
+
+    OffsetParam:
+      name: offset
+      in: query
+      description: Number of items to skip before starting to collect the result set
+      required: false
+      schema:
+        type: integer
+        minimum: 0
+        default: 0
+        example: 0
+
+    FieldsParam:
+      name: fields
+      in: query
+      description: Comma-separated list of fields to include in the response
+      required: false
+      schema:
+        type: string
+        example: id,status,created_at
+
+  schemas:
+    Order:
+      type: object
+      required:
+        - id
+        - organization_id
+        - customer_id
+        - status
+        - total_amount
+        - currency
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique identifier for the order (UUIDv4)
+          example: 550e8400-e29b-41d4-a716-446655440000
+        organization_id:
+          type: string
+          format: uuid
+          description: Organization identifier for multi-tenant segmentation
+          example: 123e4567-e89b-12d3-a456-426614174000
+        customer_id:
+          type: string
+          format: uuid
+          description: Unique identifier for the customer
+          example: 7c9e6679-7425-40de-944b-e07fc1f90ae7
+        status:
+          type: string
+          enum:
+            - pending
+            - processing
+            - completed
+            - cancelled
+          description: Current status of the order
+          example: processing
+        total_amount:
+          type: number
+          format: double
+          minimum: 0
+          description: Total amount for the order
+          example: 99.99
+        currency:
+          type: string
+          pattern: '^[A-Z]{3}$'
+          description: ISO 4217 currency code
+          example: USD
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderItem'
+          description: List of items in the order
+        created_at:
+          type: string
+          format: date-time
+          description: Timestamp when the order was created
+          example: '2026-01-22T10:30:00Z'
+        updated_at:
+          type: string
+          format: date-time
+          description: Timestamp when the order was last updated
+          example: '2026-01-22T10:30:00Z'
+      additionalProperties: false
+
+    OrderItem:
+      type: object
+      required:
+        - product_id
+        - quantity
+        - unit_price
+      properties:
+        product_id:
+          type: string
+          format: uuid
+          description: Unique identifier for the product
+          example: 9c8e7679-8425-40de-944b-e07fc1f90ae8
+        quantity:
+          type: integer
+          minimum: 1
+          description: Quantity of the product
+          example: 2
+        unit_price:
+          type: number
+          format: double
+          minimum: 0
+          description: Price per unit
+          example: 49.99
+      additionalProperties: false
+
+    CreateOrderRequest:
+      type: object
+      required:
+        - organization_id
+        - customer_id
+        - items
+        - currency
+      properties:
+        organization_id:
+          type: string
+          format: uuid
+          description: Organization identifier for multi-tenant segmentation
+          example: 123e4567-e89b-12d3-a456-426614174000
+        customer_id:
+          type: string
+          format: uuid
+          description: Unique identifier for the customer
+          example: 7c9e6679-7425-40de-944b-e07fc1f90ae7
+        items:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/OrderItem'
+          description: List of items to include in the order
+        currency:
+          type: string
+          pattern: '^[A-Z]{3}$'
+          description: ISO 4217 currency code
+          example: USD
+      additionalProperties: false
+
+    UpdateOrderRequest:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+            - pending
+            - processing
+            - completed
+            - cancelled
+          description: Updated status for the order
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderItem'
+          description: Updated list of items in the order
+      additionalProperties: false
+
+    Customer:
+      type: object
+      required:
+        - id
+        - organization_id
+        - email
+        - first_name
+        - last_name
+        - status
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique identifier for the customer (UUIDv4)
+          example: 7c9e6679-7425-40de-944b-e07fc1f90ae7
+        organization_id:
+          type: string
+          format: uuid
+          description: Organization identifier for multi-tenant segmentation
+          example: 123e4567-e89b-12d3-a456-426614174000
+        email:
+          type: string
+          format: email
+          description: Customer's email address
+          example: customer@example.com
+        first_name:
+          type: string
+          description: Customer's first name
+          example: John
+        last_name:
+          type: string
+          description: Customer's last name
+          example: Doe
+        status:
+          type: string
+          enum:
+            - active
+            - inactive
+            - suspended
+          description: Current status of the customer account
+          example: active
+        created_at:
+          type: string
+          format: date-time
+          description: Timestamp when the customer was created
+          example: '2026-01-15T08:20:00Z'
+        updated_at:
+          type: string
+          format: date-time
+          description: Timestamp when the customer was last updated
+          example: '2026-01-15T08:20:00Z'
+      additionalProperties: false
+
+    CreateCustomerRequest:
+      type: object
+      required:
+        - organization_id
+        - email
+        - first_name
+        - last_name
+      properties:
+        organization_id:
+          type: string
+          format: uuid
+          description: Organization identifier for multi-tenant segmentation
+          example: 123e4567-e89b-12d3-a456-426614174000
+        email:
+          type: string
+          format: email
+          description: Customer's email address
+          example: customer@example.com
+        first_name:
+          type: string
+          minLength: 1
+          description: Customer's first name
+          example: John
+        last_name:
+          type: string
+          minLength: 1
+          description: Customer's last name
+          example: Doe
+      additionalProperties: false
+
+    Product:
+      type: object
+      required:
+        - id
+        - name
+        - description
+        - price
+        - currency
+        - category
+        - in_stock
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique identifier for the product (UUIDv4)
+          example: 9c8e7679-8425-40de-944b-e07fc1f90ae8
+        name:
+          type: string
+          description: Product name
+          example: Premium Widget
+        description:
+          type: string
+          description: Detailed product description
+          example: High-quality widget with advanced features
+        price:
+          type: number
+          format: double
+          minimum: 0
+          description: Product price
+          example: 49.99
+        currency:
+          type: string
+          pattern: '^[A-Z]{3}$'
+          description: ISO 4217 currency code
+          example: USD
+        category:
+          type: string
+          description: Product category
+          example: Electronics
+        in_stock:
+          type: boolean
+          description: Whether the product is currently in stock
+          example: true
+        created_at:
+          type: string
+          format: date-time
+          description: Timestamp when the product was created
+          example: '2026-01-10T12:00:00Z'
+        updated_at:
+          type: string
+          format: date-time
+          description: Timestamp when the product was last updated
+          example: '2026-01-10T12:00:00Z'
+      additionalProperties: false
+
+    Pagination:
+      type: object
+      required:
+        - limit
+        - offset
+        - total
+      properties:
+        limit:
+          type: integer
+          minimum: 1
+          description: Maximum number of items returned
+          example: 20
+        offset:
+          type: integer
+          minimum: 0
+          description: Number of items skipped
+          example: 0
+        total:
+          type: integer
+          minimum: 0
+          description: Total number of items available
+          example: 150
+      additionalProperties: false
+
+    Error:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+          description: Machine-readable error code
+          example: VALIDATION_ERROR
+        message:
+          type: string
+          description: Human-readable error message
+          example: The request contains invalid parameters
+        details:
+          type: array
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+                description: Field that caused the error
+                example: email
+              issue:
+                type: string
+                description: Description of the issue
+                example: Email format is invalid
+          description: Additional error details
+      additionalProperties: false
+
+  responses:
+    BadRequest:
+      description: Bad request - invalid parameters or malformed request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: BAD_REQUEST
+            message: The request contains invalid parameters
+            details:
+              - field: email
+                issue: Email format is invalid
+
+    Unauthorized:
+      description: Unauthorized - authentication required or invalid credentials
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: UNAUTHORIZED
+            message: Authentication credentials are missing or invalid
+
+    Forbidden:
+      description: Forbidden - insufficient permissions to access the resource
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: FORBIDDEN
+            message: You do not have permission to access this resource
+
+    NotFound:
+      description: Not found - the requested resource does not exist
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: NOT_FOUND
+            message: The requested resource was not found
+
+    InternalServerError:
+      description: Internal server error - an unexpected error occurred
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: INTERNAL_ERROR
+            message: An unexpected error occurred while processing your request
