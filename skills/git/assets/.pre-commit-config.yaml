@@ -1,0 +1,61 @@
+# Pre-commit Configuration
+#
+# Install: pip install pre-commit
+# Setup: pre-commit install --hook-type commit-msg
+# Run: pre-commit run --all-files
+#
+# @see https://pre-commit.com/
+
+repos:
+  # Commitlint - Lint commit messages against Conventional Commits
+  - repo: local
+    hooks:
+      - id: commitlint
+        name: Lint commit message (Conventional Commits + JIRA)
+        entry: npx --no -- commitlint --edit
+        language: system
+        stages: [commit-msg]
+        always_run: true
+
+  # Standard pre-commit hooks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      # File content checks
+      - id: check-yaml
+        name: Check YAML syntax
+      - id: check-json
+        name: Check JSON syntax
+      - id: check-toml
+        name: Check TOML syntax
+      - id: check-xml
+        name: Check XML syntax
+
+      # File hygiene
+      - id: end-of-file-fixer
+        name: Fix end of file
+      - id: trailing-whitespace
+        name: Trim trailing whitespace
+      - id: mixed-line-ending
+        name: Check mixed line endings
+        args: ['--fix=lf']
+
+      # Security checks
+      - id: detect-private-key
+        name: Detect private keys
+      - id: check-added-large-files
+        name: Check for large files
+        args: ['--maxkb=1000']
+
+      # Git checks
+      - id: check-merge-conflict
+        name: Check for merge conflicts
+      - id: no-commit-to-branch
+        name: Prevent commits to main/master
+        args: ['--branch', 'main', '--branch', 'master']
+
+      # Other checks
+      - id: check-case-conflict
+        name: Check case conflicts
+      - id: check-symlinks
+        name: Check symlinks
