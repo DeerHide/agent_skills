@@ -1,0 +1,29 @@
+{
+  "type": "https://api.example.com/errors/validation-error",
+  "title": "Validation Error",
+  "status": 422,
+  "detail": "The request body contains invalid or missing fields. Please review the errors and correct your request.",
+  "instance": "/v1/orders",
+  "timestamp": "2026-01-23T10:30:00Z",
+  "trace_id": "trace_abc123xyz789",
+  "errors": [
+    {
+      "field": "customer.email",
+      "code": "INVALID_FORMAT",
+      "message": "Invalid email format",
+      "rejected_value": "not-an-email"
+    },
+    {
+      "field": "items[0].quantity",
+      "code": "MIN_VALUE",
+      "message": "Quantity must be at least 1",
+      "rejected_value": 0
+    },
+    {
+      "field": "shipping_address.postal_code",
+      "code": "REQUIRED",
+      "message": "Postal code is required",
+      "rejected_value": null
+    }
+  ]
+}
