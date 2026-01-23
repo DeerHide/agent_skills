@@ -1,0 +1,51 @@
+{
+  "$schema": "https://raw.githubusercontent.com/apideck-libraries/portman/main/portman-config.schema.json",
+  "version": 1.0,
+  "globals": {
+    "stripResponseExamples": false,
+    "variableCasing": "camelCase",
+    "collectionVariables": {
+      "baseUrl": "{{baseUrl}}"
+    },
+    "securityOverwrites": {
+      "bearer": {
+        "token": "{{accessToken}}"
+      }
+    }
+  },
+  "tests": {
+    "contractTests": [
+      {
+        "openApiOperation": "*::*",
+        "statusSuccess": true
+      },
+      {
+        "openApiOperation": "*::*",
+        "responseTime": {
+          "maxMs": 500
+        }
+      },
+      {
+        "openApiOperation": "*::*",
+        "contentType": true
+      },
+      {
+        "openApiOperation": "*::*",
+        "jsonBody": true
+      },
+      {
+        "openApiOperation": "*::*",
+        "schemaValidation": true
+      },
+      {
+        "openApiOperation": "*::*",
+        "headersPresent": true
+      }
+    ],
+    "variationTests": [],
+    "integrationTests": []
+  },
+  "assignVariables": [],
+  "overwrites": [],
+  "operationPreRequestScripts": []
+}

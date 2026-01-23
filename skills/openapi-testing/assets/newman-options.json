@@ -1,0 +1,16 @@
+{
+  "reporters": ["cli", "junit"],
+  "reporter": {
+    "junit": {
+      "export": "./test-results/newman-results.xml"
+    }
+  },
+  "timeout": 30000,
+  "timeoutRequest": 10000,
+  "timeoutScript": 5000,
+  "insecure": false,
+  "bail": false,
+  "color": "auto",
+  "delayRequest": 0,
+  "ignoreRedirects": true
+}
