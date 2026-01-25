@@ -159,14 +159,17 @@ class BorrowBookUseCase:
     @property
     def book(self) -> Book:
         """Get the borrowed book after execution."""
-        assert self._result_book is not None, "Use case has not been executed yet"
+        if self._result_book is None:
+            raise UseCaseError("Use case has not been executed yet or has failed")
         return self._result_book
     
     # --- Execution ---
     def execute(self) -> None:
         """Execute the borrow book operation using setter-provided inputs."""
-        assert self._book_id is not None, "book_id must be set before execution"
-        assert self._borrower_id is not None, "borrower_id must be set before execution"
+        if self._book_id is None:
+            raise UseCaseError("book_id must be set before execution")
+        if self._borrower_id is None:
+            raise UseCaseError("borrower_id must be set before execution")
         
         try:
             self._result_book = self.borrow(self._book_id, self._borrower_id)
@@ -232,8 +235,10 @@ The `execute()` method delegates to the functional method, keeping business logi
 
 ```python
 def execute(self) -> None:
-    assert self._book_id is not None, "book_id must be set before execution"
-    assert self._borrower_id is not None, "borrower_id must be set before execution"
+    if self._book_id is None:
+        raise UseCaseError("book_id must be set before execution")
+    if self._borrower_id is None:
+        raise UseCaseError("borrower_id must be set before execution")
     
     self._result_book = self.borrow(self._book_id, self._borrower_id)
 ```
@@ -256,28 +261,6 @@ This pattern offers several advantages over passing all parameters to `execute()
 | **Multiple Results** | Can expose multiple output properties |
 | **Clear State** | Explicit separation of input phase, execution phase, and output phase |
 | **Reusability** | Can reset inputs and re-execute with different values (extremely not recommended) |
-
----
-
-## Why Use `assert` for Validation?
-
-Assert statements are used to validate that inputs are set before execution and results are available before access. This is intentional:
-
-- **Developer hints** - Assertions catch programming errors during development and testing
-- **Production optimization** - Assertions are removed when Python runs with `-O` (optimized mode), eliminating runtime overhead
-- **Clear intent** - Distinguishes programming errors (assert) from business rule violations (exceptions)
-
-> ⚠️ **Important:** Never use `assert` for validating user input or business rules. Use proper exceptions for runtime errors that can occur in production.
-
-### When to Use Assert vs Exceptions
-
-| Scenario | Use |
-|----------|-----|
-| Input setter not called before execute | `assert` |
-| Result property accessed before execute | `assert` |
-| Book not found in database | `raise BookNotFoundError` |
-| Book not available for borrowing | `raise BookNotAvailableError` |
-| Invalid user input | `raise ValueError` or custom exception |
 
 ---
 
