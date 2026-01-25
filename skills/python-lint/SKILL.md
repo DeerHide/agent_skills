@@ -76,6 +76,10 @@ indent-width = 4
 [tool.ruff.lint]
 select = ["D", "F", "E", "W", "I", "UP", "PL", "N", "RUF", "TRY", "B", "C4", "SIM", "PTH", "S", "A", "C90", "ARG", "RET", "TCH", "PERF", "ERA"]
 
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["S101"]
+"**/*.py" = ["TRY003"]
+
 [tool.ruff.format]
 quote-style = "double"
 indent-style = "space"
@@ -136,12 +140,6 @@ repos:
         language: system
         types: [python]
 
-      - id: ruff-format
-        name: ruff format
-        entry: ruff format
-        language: system
-        types: [python]
-
       - id: mypy
         name: mypy
         entry: mypy
@@ -164,11 +162,8 @@ repos:
 # Check for linting issues
 ruff check .
 
-# Check and auto-fix issues
+# Check and format code and auto-fix issues
 ruff check --fix .
-
-# Format code
-ruff format .
 ```
 
 ## Running Pylint
