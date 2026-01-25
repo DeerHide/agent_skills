@@ -33,7 +33,7 @@ We follow the [Conventional Commits v1.0.0](https://www.conventionalcommits.org/
 
 ### JIRA Ticket Integration
 
-Every commit **MUST** start with a JIRA ticket reference in the format `[PROJECT-NUMBER]`:
+Every commit **SHOULD** start with a JIRA ticket reference in the format `[PROJECT-NUMBER]`, but it is not required.:
 
 ```
 [TIC-001] feat: add user authentication
@@ -42,6 +42,8 @@ Every commit **MUST** start with a JIRA ticket reference in the format `[PROJECT
 ```
 
 The ticket pattern follows: `[A-Z]+-\d+` (any uppercase letters followed by a hyphen and numbers).
+The ticket is not required, but it is recommended to include it for better traceability.
+The ticket can be extract from the branch name.
 
 ### Commit Types
 
