@@ -20,8 +20,9 @@ metadata:
 
 ## Related Skills
 
-- **[openapi](../openapi/SKILL.md)**: For designing and documenting OpenAPI specifications that serve as the source for contract tests
-- **[http-api-architecture](../http-api-architecture/SKILL.md)**: For understanding REST API design patterns, HTTP methods, status codes, and security practices that inform test cases
+- [openapi](../openapi/SKILL.md) - For designing and documenting OpenAPI specifications that serve as the source for contract tests
+- [http-api-architecture](../http-api-architecture/SKILL.md) - For understanding REST API design patterns, HTTP methods, status codes, and security practices that inform test cases
+- [python-test](../python-test/SKILL.md) - General Python testing patterns
 
 ## What tools are used for OpenAPI testing?
 

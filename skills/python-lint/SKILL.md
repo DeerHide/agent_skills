@@ -1,13 +1,14 @@
 ---
-name: Python Lint
+name: python-lint
 description: A skill for linting Python code.
-author: Deerhide
-version: 1.0.0
+metadata:
+  author: Deerhide
+  version: 1.0.0
 ---
 
 # Python Lint Skill
 
-# When to Use This Skill ?
+## When to use this skill?
 
 - Use this skill when you want to check Python code for potential errors, coding standard violations, and other issues.
 - This skill is useful for developers who want to ensure their Python code adheres to best practices and is free of common mistakes.
@@ -203,4 +204,6 @@ Since Pylint and Ruff have overlapping rules, here are recommendations to avoid 
 
 ## Related Skills
 
-For more information on setting up pre-commit hooks and git conventions, see the [Git Skill](../git/SKILL.md).
+- [git](../git/SKILL.md) - Pre-commit hooks setup
+- [python](../python/SKILL.md) - Python coding standards
+- [python-docstring](../python-docstring/SKILL.md) - Docstring conventions enforced by Ruff

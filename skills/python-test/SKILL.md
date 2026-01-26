@@ -130,6 +130,9 @@ tests/
 | [python-architecture](../python-architecture/SKILL.md) | Project structure and architecture patterns |
 | [Use Cases Pattern](../python-architecture/references/usecases-pattern.md) | How to test use cases |
 | [Dependency Injection](../python-architecture/references/dependency-injection.md) | DI patterns for testability |
+| [python](../python/SKILL.md) | Python coding standards |
+| [python-lint](../python-lint/SKILL.md) | Code quality checks |
+| [fastapi-factory-utilities](../fastapi-factory-utilities/SKILL.md) | Mock utilities for HTTP clients and repositories |
 
 ### External References
 

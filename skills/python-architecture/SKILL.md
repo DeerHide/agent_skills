@@ -117,11 +117,22 @@ Additional libraries and tools may be included based on the plugin use.
 | [Project Structure](references/project-structure.md) | Recommended directory structure following Clean Architecture principles |
 | [Use Cases Pattern](references/usecases-pattern.md) | Patterns for implementing use cases with setter/property approach |
 
-### External References
+### Related Skills
 
 | Document | Description |
 |----------|-------------|
 | [software-architecture](../software-architecture/SKILL.md) | Software architecture principles (SOLID, DDD, Clean Architecture) |
+| [python](../python/SKILL.md) | Python coding standards and best practices |
+| [python-test](../python-test/SKILL.md) | Testing patterns for Python applications |
+| [python-lint](../python-lint/SKILL.md) | Code quality and linting configuration |
+| [python-docstring](../python-docstring/SKILL.md) | Documentation style conventions |
+| [fastapi-factory-utilities](../fastapi-factory-utilities/SKILL.md) | FastAPI plugin library |
+| [http-api-architecture](../http-api-architecture/SKILL.md) | REST API design principles |
+
+### External References
+
+| Document | Description |
+|----------|-------------|
 | [fastapi_factory_utilities](https://github.com/DeerHide/fastapi_factory_utilities) | Core library documentation |
 | [Poetry Documentation](https://python-poetry.org/docs/) | Package management |
 | [Paketo Buildpacks](https://paketo.io/docs/howto/python/) | Python buildpack documentation |

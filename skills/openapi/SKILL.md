@@ -244,5 +244,6 @@ Before deploying your OpenAPI specification, ensure the following checklist item
 
 ## Related Skills
 
-- See [http-api-architecture](../http-api-architecture/SKILL.md) for REST API design principles
-- See [openapi-testing](../openapi-testing/SKILL.md) for API testing strategies
+- [http-api-architecture](../http-api-architecture/SKILL.md) - REST API design principles
+- [openapi-testing](../openapi-testing/SKILL.md) - API testing strategies
+- [fastapi-factory-utilities](../fastapi-factory-utilities/SKILL.md) - FastAPI implementation with OpenAPI auto-generation

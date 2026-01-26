@@ -555,3 +555,8 @@ git add .
 git commit -m "[TIC-042] fix(auth): resolve login redirect loop"
 git push -u origin TIC-042/fix/login-bug
 ```
+
+## Related Skills
+
+- [python-lint](../python-lint/SKILL.md) - Pre-commit integration with linting tools
+- [python](../python/SKILL.md) - Pre-commit hooks setup

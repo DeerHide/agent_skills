@@ -1,6 +1,9 @@
 ---
 name: python
 description: Python software engineering principles, coding standards, and best practices. Use when writing Python code, setting up development environments, or following Python project conventions including typing, async patterns, testing, and documentation.
+metadata:
+  author: Deerhide
+  version: 1.0.0
 ---
 
 # Python Software Engineering Principles
@@ -139,3 +142,12 @@ For comprehensive details on all topics, see:
 - [Architecture Patterns](references/architecture-patterns.md) - Abstract base classes, plugin pattern, dependency injection, repository pattern, and service layer
 - [File Structure](references/file-structure.md) - Module organization, package structure, and `__init__.py` patterns
 - [Pre-commit](references/pre-commit.md) - Installing, running, and configuring pre-commit hooks
+
+## Related Skills
+
+- [python-lint](../python-lint/SKILL.md) - Linting configuration with Ruff, Pylint, Mypy
+- [python-docstring](../python-docstring/SKILL.md) - Google-style docstring conventions
+- [python-test](../python-test/SKILL.md) - Testing patterns with pytest
+- [python-architecture](../python-architecture/SKILL.md) - Backend service architecture
+- [software-architecture](../software-architecture/SKILL.md) - Design principles (SOLID, DDD, Clean Architecture)
+- [fastapi-factory-utilities](../fastapi-factory-utilities/SKILL.md) - FastAPI microservice utilities

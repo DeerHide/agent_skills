@@ -645,5 +645,7 @@ See [openapi](../openapi/SKILL.md) for detailed OpenAPI specification standards.
 
 ## Related Skills
 
-- See [openapi](../openapi/SKILL.md) for API specification standards using OpenAPI (design-first)
-- See [openapi-testing](../openapi-testing/SKILL.md) for API contract testing approaches
+- [openapi](../openapi/SKILL.md) - API specification standards using OpenAPI (design-first)
+- [openapi-testing](../openapi-testing/SKILL.md) - API contract testing approaches
+- [fastapi-factory-utilities](../fastapi-factory-utilities/SKILL.md) - FastAPI implementation of REST APIs
+- [software-architecture](../software-architecture/SKILL.md) - Foundational architectural principles

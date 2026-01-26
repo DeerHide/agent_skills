@@ -1,13 +1,14 @@
 ---
-name: Python Docstring
+name: python-docstring
 description: A skill for writing consistent, well-structured Python docstrings following the Google style convention.
-author: Deerhide
-version: 1.0.0
+metadata:
+  author: Deerhide
+  version: 1.0.0
 ---
 
 # Python Docstring Skill
 
-# When to Use This Skill ?
+## When to use this skill?
 
 - Use this skill when writing or updating Python documentation strings (docstrings).
 - This skill is useful for ensuring consistent documentation across a Python codebase.
@@ -423,3 +424,9 @@ The Python Lint skill configures Ruff with `convention = "google"` in the `[tool
 | D400 | First line should end with a period |
 | D401 | First line should be in imperative mood |
 | D417 | Missing argument descriptions in docstring |
+
+## Related Skills
+
+- [python](../python/SKILL.md) - Python coding standards
+- [python-lint](../python-lint/SKILL.md) - Linting configuration for docstrings
+- [python-architecture](../python-architecture/SKILL.md) - Documentation in project structure

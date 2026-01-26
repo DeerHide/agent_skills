@@ -216,3 +216,9 @@ To reduce maintenance costs and ensure consistency across services, use a **shar
 | [clean-architecture.md](references/clean-architecture.md) | Layer responsibilities and dependency rules |
 | [microservices.md](references/microservices.md) | Communication patterns and resilience strategies |
 | [shared-infrastructure-library.md](references/shared-infrastructure-library.md) | Shared library patterns for infrastructure concerns |
+
+## Related Skills
+
+- [python-architecture](../python-architecture/SKILL.md) - Python implementation of these principles
+- [http-api-architecture](../http-api-architecture/SKILL.md) - API architecture patterns
+- [fastapi-factory-utilities](../fastapi-factory-utilities/SKILL.md) - Microservice implementation with FastAPI

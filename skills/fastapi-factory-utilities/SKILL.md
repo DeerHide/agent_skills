@@ -84,3 +84,12 @@ For testing, several plugins provide mockers to create mock resources:
 4. **Observability** - Enable OpenTelemetry in production
 5. **Logging** - Use JSON mode in production for log aggregation
 6. **Testing** - Use mockers from aiohttp plugin for HTTP client tests
+
+## Related Skills
+
+- [python-architecture](../python-architecture/SKILL.md) - Project structure and clean architecture patterns
+- [python](../python/SKILL.md) - Python coding standards and best practices
+- [python-test](../python-test/SKILL.md) - Testing patterns including mock utilities
+- [software-architecture](../software-architecture/SKILL.md) - SOLID, DDD, and Clean Architecture principles
+- [http-api-architecture](../http-api-architecture/SKILL.md) - REST API design principles
+- [openapi](../openapi/SKILL.md) - OpenAPI specification design
