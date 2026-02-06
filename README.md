@@ -10,31 +10,18 @@ This repository provides reusable skill modules that enhance AI coding agents wi
 
 ## Installation
 
-### Clone the Repository
+### Quick install (download and run)
+
+Download and run the install script directly from GitHub (clones the repo to `~/.deerhide/repositories/agent_skills`, copies skills to `~/.claude/skills`, and adds the `deerhide_agents_skills_update` alias to your shell rc):
 
 ```bash
-git clone https://github.com/DeerHide/agent_skills.git
-cd agent_skills
+curl -fsSL https://raw.githubusercontent.com/DeerHide/agent_skills/main/scripts/install_or_update_skills.sh | bash
 ```
 
-### Add as Git Submodule
-
-To include these skills in your existing project:
+Afterwards you can update skills anytime with:
 
 ```bash
-# Add as submodule
-git submodule add https://github.com/DeerHide/agent_skills.git .agent_skills
-
-# Initialize and update (for cloning projects with this submodule)
-git submodule update --init --recursive
-```
-
-### Direct Reference
-
-Reference skills directly via GitHub raw URLs in your agent configurations:
-
-```
-https://raw.githubusercontent.com/DeerHide/agent_skills/main/skills/<skill-name>/SKILL.md
+deerhide_agents_skills_update
 ```
 
 ## Available Skills
