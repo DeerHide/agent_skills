@@ -21,6 +21,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.1.0] - 2026-02-06
+
+### Added
+
+- **writing-skills** skill: Authoring Agent Skills (SKILL.md), structure, MUST/SHOULD/MAY phrasing, and checklists
+- writing-skills reference: `references/checklist.md` for skill authoring
+
+### Changed
+
+- README: document writing-skills in available skills table
+
+---
+
 ## [1.0.0] - 2026-02-06
 
 ### Added
@@ -52,5 +65,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-[Unreleased]: https://github.com/DeerHide/agent_skills/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/DeerHide/agent_skills/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/DeerHide/agent_skills/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/DeerHide/agent_skills/releases/tag/v1.0.0

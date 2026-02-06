@@ -38,6 +38,7 @@ deerhide_agents_skills_update
 | **[python-starter](skills/python-starter/SKILL.md)** | Python project bootstrapping and initial setup |
 | **[python-test](skills/python-test/SKILL.md)** | Python testing with pytest, fixtures, mocks, and Testcontainers |
 | **[software-architecture](skills/software-architecture/SKILL.md)** | Clean Architecture, DDD, SOLID principles, and microservices patterns |
+| **[writing-skills](skills/writing-skills/SKILL.md)** | How to write Agent Skills: structure, descriptions, natural language strength (MUST/SHOULD/MAY), and checklists |
 
 ## Skill Structure
 
