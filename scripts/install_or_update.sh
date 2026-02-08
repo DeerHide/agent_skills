@@ -2,20 +2,23 @@
 set -e
 
 # This script installs or updates the agent_skills repository and syncs skills
-# to ~/.claude/skills (using cp for better IDE integration; some IDEs don't support symlinks).
+# to ~/.claude/skills and agents to ~/.claude/agents (using cp for better IDE
+# integration; some IDEs don't support symlinks).
 
 REPO_URL="https://github.com/DeerHide/agent_skills.git"
 REPO_DIR="$HOME/.deerhide/repositories/agent_skills"
 SKILLS_DEST="$HOME/.claude/skills"
+AGENTS_DEST="$HOME/.claude/agents"
 ALIAS_NAME="deerhide_agents_skills_update"
-ALIAS_LINE="alias ${ALIAS_NAME}='\$HOME/.deerhide/repositories/agent_skills/scripts/install_or_update_skills.sh'"
+ALIAS_LINE="alias ${ALIAS_NAME}='\$HOME/.deerhide/repositories/agent_skills/scripts/install_or_update.sh'"
 
 # Helpers for consistent output
 info() { echo "  $*"; }
 section() { echo ""; echo "==> $*"; }
 
 section "DeerHide agent_skills — install or update"
-echo "  Destination: $SKILLS_DEST"
+echo "  Skills: $SKILLS_DEST"
+echo "  Agents: $AGENTS_DEST"
 echo ""
 
 # 1. Clone or update the repository
@@ -49,7 +52,21 @@ for dir in "$REPO_DIR"/skills/*/; do
 done
 info "Installed/updated $skill_count skill(s) → $SKILLS_DEST"
 
-# 4. Add alias to detected rc files if not already present
+# 4. Install or update agents (copy each file from agents/)
+section "Agents"
+mkdir -p "$AGENTS_DEST"
+agent_count=0
+if [ -d "$REPO_DIR/agents" ]; then
+  for f in "$REPO_DIR"/agents/*; do
+    [ -e "$f" ] || continue
+    cp -r "$f" "$AGENTS_DEST/"
+    info "$(basename "$f")"
+    agent_count=$((agent_count + 1))
+  done
+fi
+info "Installed/updated $agent_count agent(s) → $AGENTS_DEST"
+
+# 5. Add alias to detected rc files if not already present
 section "Shell alias"
 alias_added=0
 for rc in .bashrc .zshrc .profile; do
@@ -70,5 +87,5 @@ fi
 info "To update again later: $ALIAS_NAME"
 
 section "Done"
-echo "  Skills: $skill_count  |  Path: $SKILLS_DEST"
+echo "  Skills: $skill_count  |  Agents: $agent_count  |  Paths: $SKILLS_DEST, $AGENTS_DEST"
 echo ""

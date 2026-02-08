@@ -21,6 +21,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.3.0] - 2026-02-08
+
+### Added
+
+- Install script syncs **agents** to `~/.claude/agents` (e.g. `analyst.md`)
+
+### Changed
+
+- Install script renamed from `install_or_update_skills.sh` to `install_or_update.sh`
+- README: document agents in installation, installed paths (skills and agents), and new script URL
+
+---
+
 ## [1.2.0] - 2026-02-08
 
 ### Added
@@ -65,7 +78,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **python-test** skill: Pytest, fixtures, mocks, and Testcontainers
 - **software-architecture** skill: Clean Architecture, DDD, SOLID, and microservices
 - Skill template for creating new skills
-- Install script (`scripts/install_or_update_skills.sh`) for one-line install and update alias
+- Install script (`scripts/install_or_update.sh`) for one-line install and update alias
 - Repository README with comprehensive documentation
 
 ### Changed

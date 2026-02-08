@@ -12,17 +12,22 @@ This repository provides reusable skill modules that enhance AI coding agents wi
 
 ### Quick install (download and run)
 
-Download and run the install script directly from GitHub (clones the repo to `~/.deerhide/repositories/agent_skills`, copies skills to `~/.claude/skills`, and adds the `deerhide_agents_skills_update` alias to your shell rc):
+Download and run the install script directly from GitHub (clones the repo to `~/.deerhide/repositories/agent_skills`, copies skills to `~/.claude/skills` and agents to `~/.claude/agents`, and adds the `deerhide_agents_skills_update` alias to your shell rc):
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/DeerHide/agent_skills/main/scripts/install_or_update_skills.sh | bash
+curl -fsSL https://raw.githubusercontent.com/DeerHide/agent_skills/main/scripts/install_or_update.sh | bash
 ```
 
-Afterwards you can update skills anytime with:
+Afterwards you can update skills and agents anytime with:
 
 ```bash
 deerhide_agents_skills_update
 ```
+
+Installed paths:
+
+- **Skills:** `~/.claude/skills` — one directory per skill (e.g. `git`, `python-architecture`).
+- **Agents:** `~/.claude/agents` — agent definition files (e.g. `analyst.md` for the Business Analyst agent).
 
 ## Available Skills
 
