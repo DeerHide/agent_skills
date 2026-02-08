@@ -21,6 +21,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.5.0] - 2026-02-08
+
+### Added
+
+- **jira-cli** skill: Interact with Jira from the command line using ankitpokhrel/jira-cli (create, update, list, link, comment); references for commands and install/configure
+- **story-driven-development** skill: Feature implementation from user story (branch, context, scenarios, contract, TDD, quality gate, commit, push, PR); Jira ticket comments for decisions
+
+### Changed
+
+- jira-epics-stories SKILL.md: updated to use jira-cli instead of Jira MCP
+
+### Removed
+
+- jira-epics-stories reference: `references/jira-mcp-tools.md` (replaced by jira-cli skill)
+
+---
+
 ## [1.4.0] - 2026-02-08
 
 ### Added
@@ -106,7 +123,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-[Unreleased]: https://github.com/DeerHide/agent_skills/compare/v1.4.0...HEAD
+[Unreleased]: https://github.com/DeerHide/agent_skills/compare/v1.5.0...HEAD
+[1.5.0]: https://github.com/DeerHide/agent_skills/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/DeerHide/agent_skills/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/DeerHide/agent_skills/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/DeerHide/agent_skills/compare/v1.1.0...v1.2.0
