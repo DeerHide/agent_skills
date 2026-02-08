@@ -30,6 +30,7 @@ deerhide_agents_skills_update
 |-------|-------------|
 | **[git](skills/git/SKILL.md)** | Git commit conventions, branch naming, semantic versioning, changelog maintenance, and pre-commit hooks |
 | **[http-api-architecture](skills/http-api-architecture/SKILL.md)** | REST API design patterns, caching strategies, distributed tracing, OAuth2/OIDC flows, and webhook security |
+| **[jira-epics-stories](skills/jira-epics-stories/SKILL.md)** | Writing epics and user stories with acceptance criteria; creating or updating them in Jira via Jira MCP when available |
 | **[openapi](skills/openapi/SKILL.md)** | OpenAPI 3.1 specification design, validation with Spectral, and best practices |
 | **[openapi-testing](skills/openapi-testing/SKILL.md)** | API testing with Portman and Newman for contract testing |
 | **[python-architecture](skills/python-architecture/SKILL.md)** | Clean architecture patterns for Python/FastAPI services with Poetry and Cloud Native Buildpacks |
