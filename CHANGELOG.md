@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **agents/developper.md**: Developper agent that follows the story-driven-development skill (branch, context, scenarios, OpenAPI, TDD, implement, lint, tests, commit, PR)
+
 ### Changed
 
 ### Deprecated

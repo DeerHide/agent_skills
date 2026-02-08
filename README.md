@@ -27,7 +27,7 @@ deerhide_agents_skills_update
 Installed paths:
 
 - **Skills:** `~/.claude/skills` — one directory per skill (e.g. `git`, `python-architecture`).
-- **Agents:** `~/.claude/agents` — agent definition files (e.g. `analyst.md` for the Business Analyst agent).
+- **Agents:** `~/.claude/agents` — agent definition files (e.g. **Analyst** — `analyst.md` for epics and user stories; **Developper** — `developper.md` for story-driven feature implementation from story to PR).
 
 ## Available Skills
 
