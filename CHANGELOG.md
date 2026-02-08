@@ -21,6 +21,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.2.0] - 2026-02-08
+
+### Added
+
+- **jira-epics-stories** skill: Writing epics and user stories with acceptance criteria; creating or updating them in Jira via Jira MCP when available
+- jira-epics-stories reference: `references/jira-mcp-tools.md` for MCP server variants and tool names
+- jira-epics-stories assets: `assets/templates.md` for epic and story markdown templates
+- **agents/analyst.md**: Business Analyst agent with Epic & User Story Writer subagent; references jira-epics-stories skill
+
+### Changed
+
+- README: document jira-epics-stories in available skills table
+
+---
+
 ## [1.1.0] - 2026-02-06
 
 ### Added
@@ -65,6 +80,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-[Unreleased]: https://github.com/DeerHide/agent_skills/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/DeerHide/agent_skills/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/DeerHide/agent_skills/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/DeerHide/agent_skills/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/DeerHide/agent_skills/releases/tag/v1.0.0
