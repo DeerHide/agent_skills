@@ -21,6 +21,7 @@ metadata:
 - Use this skill when creating mock resources for testing (AioHttp, ODM repositories).
 - Use this skill when implementing repository patterns for data access.
 - Use this skill when configuring health checks and status services.
+- Use this skill when implementing JWT Bearer authentication with JWKS verification.
 
 ---
 
@@ -69,6 +70,12 @@ For testing, several plugins provide mockers to create mock resources:
 | [Kratos Service](references/kratos-service.md) | Identity management, session validation |
 | [Audit Service](references/audit-service.md) | Event auditing with RabbitMQ |
 
+### Security
+
+| Reference | Description |
+|-----------|-------------|
+| [JWT Authentication](references/jwt-authentication.md) | JWT Bearer validation, JWKS store, custom verifiers |
+
 ### Utilities
 
 | Reference | Description |
@@ -84,12 +91,3 @@ For testing, several plugins provide mockers to create mock resources:
 4. **Observability** - Enable OpenTelemetry in production
 5. **Logging** - Use JSON mode in production for log aggregation
 6. **Testing** - Use mockers from aiohttp plugin for HTTP client tests
-
-## Related Skills
-
-- [python-architecture](../python-architecture/SKILL.md) - Project structure and clean architecture patterns
-- [python](../python/SKILL.md) - Python coding standards and best practices
-- [python-test](../python-test/SKILL.md) - Testing patterns including mock utilities
-- [software-architecture](../software-architecture/SKILL.md) - SOLID, DDD, and Clean Architecture principles
-- [http-api-architecture](../http-api-architecture/SKILL.md) - REST API design principles
-- [openapi](../openapi/SKILL.md) - OpenAPI specification design

@@ -21,6 +21,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.4.0] - 2026-02-08
+
+### Added
+
+- **fastapi-factory-utilities** reference: `references/jwt-authentication.md` for JWT Bearer validation, JWKS store, and custom verifiers
+
+### Changed
+
+- fastapi-factory-utilities SKILL.md: document JWT authentication reference and "When to use" guidance
+- fastapi-factory-utilities references: aiohttp, hydra-service, kratos-service, repository-pattern updates
+
+---
+
 ## [1.3.0] - 2026-02-08
 
 ### Added
@@ -93,7 +106,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-[Unreleased]: https://github.com/DeerHide/agent_skills/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/DeerHide/agent_skills/compare/v1.4.0...HEAD
+[1.4.0]: https://github.com/DeerHide/agent_skills/compare/v1.3.0...v1.4.0
+[1.3.0]: https://github.com/DeerHide/agent_skills/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/DeerHide/agent_skills/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/DeerHide/agent_skills/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/DeerHide/agent_skills/releases/tag/v1.0.0
