@@ -21,6 +21,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.7.0] - 2026-02-19
+
+### Added
+
+- **release** skill: Release workflow (changelog, git state, atomic commits, SemVer, annotated tag); follows git skill conventions
+- **velmios-projects** skill: Catalog of Velmios-related projects with absolute paths and summaries for cross-project discovery
+
+### Changed
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+### Security
+
+---
+
 ## [1.6.0] - 2026-02-08
 
 ### Added
@@ -141,7 +160,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-[Unreleased]: https://github.com/DeerHide/agent_skills/compare/v1.6.0...HEAD
+[Unreleased]: https://github.com/DeerHide/agent_skills/compare/v1.7.0...HEAD
+[1.7.0]: https://github.com/DeerHide/agent_skills/compare/v1.6.1...v1.7.0
 [1.6.0]: https://github.com/DeerHide/agent_skills/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/DeerHide/agent_skills/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/DeerHide/agent_skills/compare/v1.3.0...v1.4.0
