@@ -21,6 +21,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.8.0] - 2026-02-25
+
+### Added
+
+- **commit** skill: Conventional Commit guidance for tickets, versions, changelog maintenance, and commitlint integration
+
+### Changed
+
+- fastapi-factory-utilities JWT authentication reference: align JWT examples and wording with latest library changes
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+### Security
+
+---
+
 ## [1.7.0] - 2026-02-19
 
 ### Added
@@ -160,7 +180,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-[Unreleased]: https://github.com/DeerHide/agent_skills/compare/v1.7.0...HEAD
+[Unreleased]: https://github.com/DeerHide/agent_skills/compare/v1.8.0...HEAD
+[1.8.0]: https://github.com/DeerHide/agent_skills/compare/v1.7.0...v1.8.0
 [1.7.0]: https://github.com/DeerHide/agent_skills/compare/v1.6.1...v1.7.0
 [1.6.0]: https://github.com/DeerHide/agent_skills/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/DeerHide/agent_skills/compare/v1.4.0...v1.5.0
