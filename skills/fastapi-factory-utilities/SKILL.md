@@ -1,9 +1,9 @@
 ---
 name: fastapi-factory-utilities
-description: Build FastAPI microservices with plugins, message brokers, OAuth2/OIDC, OpenTelemetry, and structured logging.
+description: Build FastAPI microservices with plugins, typed HTTP query filters, message brokers, OAuth2/OIDC, OpenTelemetry, and structured logging.
 metadata:
   author: Deerhide
-  version: 1.0.0
+  version: 1.0.1
 ---
 # FastAPI Factory Utilities
 
@@ -22,6 +22,7 @@ metadata:
 - Use this skill when implementing repository patterns for data access.
 - Use this skill when configuring health checks and status services.
 - Use this skill when implementing JWT Bearer authentication with JWKS verification.
+- Use this skill when implementing typed list/search query parameters (`QueryAbstract`, `SearchableEntity`, `QueryResolver`).
 
 ---
 
@@ -80,6 +81,7 @@ For testing, several plugins provide mockers to create mock resources:
 
 | Reference | Description |
 |-----------|-------------|
+| [Query utilities](references/query-utilities.md) | Typed HTTP filters, sorting, `SearchableEntity`, `QueryResolver`, ODM translation |
 | [Pagination](references/pagination.md) | Type-safe pagination types |
 | [Ory Utilities](references/ory-utilities.md) | Ory API pagination helpers |
 

@@ -211,6 +211,12 @@ except UnableToCreateEntityDueToDuplicateKeyError:
     raise HTTPException(status_code=409, detail="Entity already exists")
 ```
 
+## Query filters and Mongo translation
+
+Search/list APIs often use [Query utilities](query-utilities.md) (`QueryAbstract`, `SearchableEntity`, `QueryResolver`). The ODM plugin translates those models to Beanie/Mongo arguments in `src/fastapi_factory_utilities/core/plugins/odm_plugin/queries.py` (merge rules for operators, field paths including `id` → `_id`).
+
+Prefer deriving filter models from `SearchableEntity.build_query_filter_model()` when your document or API model already marks fields with `SearchableField`.
+
 ## Best Practices
 
 1. **Document Models**: Register all document models in `ODM_DOCUMENT_MODELS`
@@ -227,3 +233,4 @@ except UnableToCreateEntityDueToDuplicateKeyError:
 - `src/fastapi_factory_utilities/core/plugins/odm_plugin/helpers.py` - PersistedEntity
 - `src/fastapi_factory_utilities/core/plugins/odm_plugin/configs.py` - ODMConfig
 - `src/fastapi_factory_utilities/core/plugins/odm_plugin/depends.py` - Dependencies
+- `src/fastapi_factory_utilities/core/plugins/odm_plugin/queries.py` - `QueryAbstract` to MongoDB/Beanie translation
