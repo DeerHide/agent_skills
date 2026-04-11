@@ -9,7 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **fastapi-factory-utilities** skill: [Query utilities](skills/fastapi-factory-utilities/references/query-utilities.md) reference for `QueryAbstract`, `SearchableEntity`, and ODM query translation.
+- **velmios-lib** skill: [Safe URL types](skills/velmios-lib/references/safe-url-types.md) and [Features and resource APIs](skills/velmios-lib/references/features-and-resource-apis.md) references.
+
 ### Changed
+
+- **fastapi-factory-utilities** skill: `SKILL.md` and [ODM plugin](skills/fastapi-factory-utilities/references/odm-plugin.md) link to query utilities; skill metadata **1.0.1**.
+- **velmios-lib** skill: align `SKILL.md`, quick start, and security/JWT/entities/functional-types/authorization/permissions docs with current library (`DependsAuthenticationContext`, dual JWT, lite entities, resource API hooks); skill metadata **1.0.1**.
 
 ### Deprecated
 
