@@ -1,53 +1,66 @@
-# Functional Types
+# Functional and related scalar types
 
-## When to Use
+## When to use
 
-- When you need a **strongly-typed UUID identifier** for a Velmios domain concept.
-- When defining Pydantic models, entity fields, or function signatures that accept realm, user, or system identifiers.
-- When you want compile-time and runtime distinction between different UUID-based identifiers.
+- Strongly-typed **`uuid.UUID`** identifiers for Velmios domains.
+- **`AuthenticationPersona`** in route signatures and models.
+- Stable string keys for **features** and **Kratos** linkage.
 
-## Overview
-
-Functional types are `NewType` wrappers around `uuid.UUID`. They provide semantic meaning and type safety without runtime overhead beyond standard UUID validation.
+## UUID-based identifiers (`NewType`)
 
 ```python
-from velmios.core.types import RealmId, CustomerId, AdminId, SystemId, PublicUserId
+from velmios.core.types import (
+    RealmId,
+    CustomerId,
+    AdminId,
+    SystemId,
+    PublicUserId,
+    FeatureForRealmEntityId,
+    KratosIdentityId,
+)
 ```
 
-## Type Definitions
+| Type | Purpose |
+|---|---|
+| `RealmId` | Tenant or platform realm. Reserved Velmios realm: `00000000-0000-0000-0000-000000000000`. |
+| `CustomerId` | Customer user id (tenant realm). |
+| `AdminId` | Admin user id (Velmios realm). |
+| `SystemId` | System / M2M principal id. |
+| `PublicUserId` | Public end-user id. |
+| `FeatureForRealmEntityId` | Primary key for persisted **features per realm** aggregate. |
+| `KratosIdentityId` | Ory Kratos identity id (`NewType` over `uuid.UUID`). |
 
-| Type | Base | Purpose |
-|---|---|---|
-| `RealmId` | `uuid.UUID` | Tenant realm identifier. The reserved Velmios realm is `00000000-0000-0000-0000-000000000000`. |
-| `CustomerId` | `uuid.UUID` | Customer user identifier (tenant realm only). |
-| `AdminId` | `uuid.UUID` | Admin user identifier (Velmios realm only). |
-| `SystemId` | `uuid.UUID` | System process identifier for machine-to-machine calls. |
-| `PublicUserId` | `uuid.UUID` | Public user identifier (guest or authenticated end-user). |
+## AuthenticationPersona
+
+`StrEnum`: `customer`, `public`, `admin`, `system`, `none`. Defined in **`velmios.core.types`** and re-exported from **`velmios.core.security`** for convenience.
+
+## Feature string type
+
+**`Feature`** — validated `str` subclass for feature keys (length and character class constraints). Use on **`FeatureForRealmEntity`** and related APIs.
 
 ## Usage
 
 ```python
 import uuid
-from velmios.core.types import RealmId, CustomerId
+from velmios.core.types import RealmId, CustomerId, Feature
 
 realm_id = RealmId(uuid.uuid4())
 customer_id = CustomerId(uuid.uuid4())
+feature = Feature("my_component:beta_flag")
 ```
-
-These types are accepted directly by Pydantic models and FastAPI path/query parameters.
 
 ## Constants
 
-The reserved Velmios realm ID is available as a constant:
-
 ```python
 from velmios.core.constants import VELMIOS_REALM_ID
-# VELMIOS_REALM_ID == RealmId(uuid.UUID("00000000-0000-0000-0000-000000000000"))
 ```
 
-IMPORTANT: The Velmios realm ID is reserved for platform-level operations (admins, system entities). Tenant customers MUST NOT use this realm ID.
+Tenant customers MUST NOT use the Velmios realm id; admins and Velmios system roles MUST use it where required by entity validators.
 
 ## Reference
 
 - `src/velmios/core/types/functionals.py`
+- `src/velmios/core/types/persona.py`
+- `src/velmios/core/types/feature.py`
+- `src/velmios/core/types/kratos.py`
 - `src/velmios/core/constants.py`

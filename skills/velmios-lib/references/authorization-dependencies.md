@@ -1,131 +1,106 @@
-# Authorization Dependencies
+# Authorization dependencies
 
-## When to Use
+## When to use
 
-- When you need to **restrict a FastAPI endpoint** to specific persona types.
-- When you need to **enforce OAuth2 scopes** on system-to-system endpoints.
-- When you need the base `AuthenticationContext` dependency without additional authorization.
+- Restricting a FastAPI route to specific **personas** (`AuthenticationPersona`).
+- Restricting which **authentication mechanisms** may be used (`AuthenticationType`).
+- Understanding **public** and **none** personas when the resolver is configured to allow them.
 
 ## Overview
 
-Authorization dependencies are FastAPI `Depends()` callables that authenticate the request and then enforce authorization rules. They return the `AuthenticationContext` on success or raise HTTP exceptions on failure.
+Velmios exposes a single first-class dependency class, **`DependsAuthenticationContext`**, which:
+
+1. Injects **`AuthenticationResolver`** (via `depends_authentication_resolver`).
+2. Optionally applies **`supported_authentication_types`** and **`authorized_personas`** on the resolver.
+3. Calls **`authenticate(request)`** and verifies the resulting persona is allowed.
 
 ```python
 from velmios.core.security import (
-    depends_authentication_context,
-    DependsAuthorizedPersona,
-    DependsSystemHasScope,
-    AuthenticationPersona,
+    AuthenticationContext,
+    AuthenticationType,
+    DependsAuthenticationContext,
 )
+from velmios.core.types import AuthenticationPersona
 ```
 
-## depends_authentication_context
+There is **no** `depends_authentication_context`, `DependsAuthorizedPersona`, or `DependsSystemHasScope` in current public APIs. Older docs referred to those names; migrate to `DependsAuthenticationContext`.
 
-Base dependency that authenticates the request and returns the `AuthenticationContext`. Does NOT enforce any authorization rules.
-
-```python
-from fastapi import Depends
-from velmios.core.security import AuthenticationContext, depends_authentication_context
-
-@app.get("/resource")
-async def get_resource(
-    auth: AuthenticationContext = Depends(depends_authentication_context),
-) -> dict:
-    return {"persona": auth.persona}
-```
-
-## DependsAuthorizedPersona
-
-Callable class that authenticates the request and verifies that the authenticated persona is in the list of authorized personas.
+## DependsAuthenticationContext
 
 ### Constructor
 
 ```python
-DependsAuthorizedPersona(authorized_personas: list[AuthenticationPersona])
+DependsAuthenticationContext(
+    authorized_personas: list[AuthenticationPersona],
+    supported_authentication_types: list[AuthenticationType] | None = None,
+)
 ```
 
-- `authorized_personas` MUST NOT be empty. Raises `ValueError` if empty.
+- **`authorized_personas`**: MUST NOT be empty (raises `ValueError` at construction).
+- **`supported_authentication_types`**: When not `None`, MUST NOT be empty. When `None`, the resolver tries every mechanism registered on the resolver (typically internal JWT, customer JWT, and optionally Kratos).
 
 ### Usage
 
 ```python
 from fastapi import Depends
-from velmios.core.security import (
-    AuthenticationContext,
-    AuthenticationPersona,
-    DependsAuthorizedPersona,
-)
 
-# Only admins
-@app.get("/admin-only")
+@app.get("/admin")
 async def admin_only(
     auth: AuthenticationContext = Depends(
-        DependsAuthorizedPersona([AuthenticationPersona.ADMIN])
+        DependsAuthenticationContext(authorized_personas=[AuthenticationPersona.ADMIN])
     ),
 ) -> dict:
     return {"admin_id": str(auth.admin.id)}
 
-# Admins and customers
+
 @app.get("/users")
-async def for_users(
+async def for_admins_and_customers(
     auth: AuthenticationContext = Depends(
-        DependsAuthorizedPersona([AuthenticationPersona.ADMIN, AuthenticationPersona.CUSTOMER])
+        DependsAuthenticationContext(
+            authorized_personas=[AuthenticationPersona.ADMIN, AuthenticationPersona.CUSTOMER],
+        )
     ),
 ) -> dict:
     return {"realm_id": str(auth.realm_id)}
 ```
 
-### Error Handling
+### OAuth2 scopes
 
-| HTTP Status | Condition |
-|---|---|
-| `401 Unauthorized` | Authentication failed (no valid JWT or Kratos session) |
-| `401 Unauthorized` | Authenticated persona not in `authorized_personas` list |
+Scopes are available on **`auth.scopes`** as `list[OAuth2Scope]` (`fastapi_factory_utilities.core.security.types`). Velmios does **not** ship a dedicated `Depends*` for “must have scope X”. Options:
 
-## DependsSystemHasScope
+- Check membership in the route body after `DependsAuthenticationContext`.
+- Implement a small wrapper dependency or use **`AbstractDependsPermissionsRequired`** with permissions derived from roles/scopes.
 
-Callable class that authenticates the request, verifies it is a `SYSTEM` persona, and checks for a specific OAuth2 scope.
+### Machine-to-machine pattern
 
-### Constructor
+Use **SYSTEM** persona with **internal JWT** only, then validate scopes (see [assets/quick_start_example.py](../assets/quick_start_example.py)):
 
 ```python
-DependsSystemHasScope(required_scope: OAuth2Scope)
+DependsAuthenticationContext(
+    authorized_personas=[AuthenticationPersona.SYSTEM],
+    supported_authentication_types=[AuthenticationType.HYDRA_INTERNAL_JWT],
+)
 ```
 
-### Usage
+### Public and none personas
 
-```python
-from fastapi import Depends
-from velmios.core.security import AuthenticationContext, DependsSystemHasScope
+When **`AuthenticationPersona.PUBLIC`** is authorized and **`AuthenticationType.NONE`** is supported (and the resolver is configured accordingly), unauthenticated users may receive a synthetic **`PublicUserEntity`** using `realm_id` from the query string. Similarly, **`AuthenticationPersona.NONE`** can represent an explicitly anonymous context. See **`AuthenticationResolver.authenticate`** and **`authorize_public` / `authorize_none`** in `resolvers.py` for exact conditions.
 
-@app.post("/internal/process")
-async def internal_process(
-    auth: AuthenticationContext = Depends(
-        DependsSystemHasScope(required_scope="my_service.process:execute")
-    ),
-) -> dict:
-    return {"system_id": str(auth.system.id)}
-```
+### Error handling
 
-### Scope Rules
-
-- The special scope `*` grants access to all scopes. This is for **development only** and MUST NOT be used in production.
-- The `required_scope` is checked against `auth.scopes` from the JWT payload.
-
-### Error Handling
-
-| HTTP Status | Condition |
+| Condition | Typical outcome |
 |---|---|
-| `401 Unauthorized` | Authentication failed or persona is not `SYSTEM` |
-| `403 Forbidden` | System persona authenticated but missing the required scope |
+| No authentication succeeded | `VelmiosNotAuthenticatedError` from the resolver (map to HTTP 401 in exception handlers if needed) |
+| Authenticated persona not in `authorized_personas` | `HTTPException` **401** from `DependsAuthenticationContext` |
 
-## Best Practices
+## Best practices
 
-1. Prefer `DependsAuthorizedPersona` over manual persona checks in endpoint bodies.
-2. Use `DependsSystemHasScope` for all machine-to-machine endpoints. Define scopes following the pattern `service_name.resource:action`.
-3. Combine persona authorization with permission checking by layering `DependsAuthorizedPersona` with `AbstractDependsPermissionsRequired`.
-4. Never pass an empty list to `DependsAuthorizedPersona` - it will raise `ValueError` at startup.
+1. Prefer **`DependsAuthenticationContext`** over reimplementing resolver wiring in each route.
+2. Pass **`supported_authentication_types`** when a route must not accept a mechanism (e.g. human session only vs internal JWT only).
+3. Combine persona checks with **`AbstractDependsPermissionsRequired`** for fine-grained authorization.
+4. Never pass an empty `authorized_personas` or empty `supported_authentication_types` when the latter is not `None`.
 
 ## Reference
 
 - `src/velmios/core/security/depends.py`
+- `src/velmios/core/security/resolvers.py`

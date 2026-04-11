@@ -1,122 +1,79 @@
-# JWT Authentication
+# JWT authentication (Velmios)
 
-## When to Use
+## When to use
 
-- When you need to understand how **system-to-system JWT authentication** works in Velmios.
-- When configuring or customizing the JWT authentication pipeline.
-- When debugging JWT token verification or Hydra introspection issues.
+- Configuring or debugging **internal** vs **customer** Hydra JWT verification.
+- Understanding **`VelmiosInternalJWTPayload`** vs **`VelmiosCustomerJWTPayload`** and how they map to **`AuthenticationContext`**.
 
 ## Overview
 
-The JWT authentication module provides Velmios-specific extensions to the `fastapi-factory-utilities` JWT framework. It handles Bearer token extraction, Hydra introspection for token verification, JWKS-based decoding, and payload parsing.
+Velmios splits JWT handling into **two parallel stacks** (internal platform vs customer-issued tokens), each with its own Hydra introspection dependency, verifier, decoder, authentication service, and payload type. Public imports live under **`velmios.core.security.jwt`**.
 
 ```python
 from velmios.core.security.jwt import (
-    VelmiosJWTAuthenticationService,
-    VelmiosJWTPayload,
-    VelmiosJWTTokenVerifier,
-    VelmiosJWTTokenDecoder,
-    VelmiosHydraInstrospectService,
-    configure_jwks_in_memory_store,
+    VelmiosInternalJWTAuthenticationService,
+    VelmiosCustomerJWTAuthenticationService,
+    VelmiosInternalJWTPayload,
+    VelmiosCustomerJWTPayload,
+    VelmiosInternalJWTTokenVerifier,
+    VelmiosCustomerJWTTokenVerifier,
+    VelmiosInternalJWTTokenDecoder,
+    VelmiosCustomerJWTTokenDecoder,
+    configure_velmios_jwks_store_memory,
+    depends_velmios_internal_jwt_authentication_service,
+    depends_velmios_customer_jwt_authentication_service,
 )
 ```
 
-## Components
+Hydra HTTP clients for introspection are provided from **`velmios.core.services.hydra`** (`depends_velmios_internal_hydra_introspect_service`, `depends_velmios_customer_hydra_introspect_service`, …).
 
-### VelmiosJWTPayload
+## Payloads
 
-Extends the base `JWTPayload` from `fastapi-factory-utilities` with an optional metadata field.
+### VelmiosInternalJWTPayload
 
-```python
-class VelmiosJWTPayload(JWTPayload):
-    metadata: Optional[dict[str, Any]] = None
-```
+Extends **`JWTPayload`** from `fastapi-factory-utilities`. Carries optional **`metadata`** (e.g. system `id`) and optional **`ext`**. Used with the **internal** JWT pipeline.
 
-The `metadata` field is used to carry additional information in the JWT, notably the `id` field used to identify the system entity.
+### VelmiosCustomerJWTPayload
 
-### VelmiosJWTAuthenticationService
+Extends **`JWTPayload`**. Carries **`ext`**: a discriminated union of **`AdminLiteEntity`** and **`CustomerLiteEntity`** (by **`persona`** field) for customer-facing tokens.
 
-Main authentication service that orchestrates token extraction, verification, and decoding.
+## Services
 
-```python
-class VelmiosJWTAuthenticationService(JWTAuthenticationServiceAbstract[VelmiosJWTPayload]):
-    def __init__(
-        self,
-        jwt_bearer_authentication_config: JWTBearerAuthenticationConfig,
-        jwks_store: JWKStoreAbstract,
-        jwt_verifier: VelmiosJWTTokenVerifier,
-        raise_exception: bool = True,
-    ) -> None: ...
-```
+| Class | Role |
+|---|---|
+| **`VelmiosInternalJWTAuthenticationService`** | Bearer extract → verify (Hydra) → decode (JWKS) for internal tokens |
+| **`VelmiosCustomerJWTAuthenticationService`** | Same pipeline for customer tokens |
 
-**Authentication flow:**
-1. Extract Bearer token from the `Authorization` header.
-2. Verify the token via Hydra introspection (`VelmiosJWTTokenVerifier`).
-3. Decode the token payload using JWKS (`VelmiosJWTTokenDecoder`).
-4. Store the decoded `VelmiosJWTPayload` for hook consumption.
+Dependencies: **`depends_velmios_internal_jwt_authentication_service`**, **`depends_velmios_customer_jwt_authentication_service`**.
 
-### VelmiosJWTTokenVerifier
+## Verifiers and decoders
 
-Verifies JWT tokens by calling the Ory Hydra introspection endpoint.
+- **`VelmiosInternalJWTTokenVerifier`** / **`VelmiosCustomerJWTTokenVerifier`** — Hydra introspection.
+- **`VelmiosInternalJWTTokenDecoder`** / **`VelmiosCustomerJWTTokenDecoder`** — JWKS-backed decoding.
 
-```python
-class VelmiosJWTTokenVerifier:
-    def __init__(self, hydra_instrospect_service: VelmiosHydraInstrospectService) -> None: ...
-```
+Matching **`depends_*`** functions exist in `jwt/verifiers.py` and `jwt/decoders.py`.
 
-### VelmiosJWTTokenDecoder
+## JWKS store
 
-Decodes JWT tokens using the JWKS (JSON Web Key Set) in-memory store.
+**`configure_velmios_jwks_store_memory`** configures the in-memory JWKS store used by decoders (see `jwt/stores.py`).
 
-### VelmiosHydraInstrospectService
+## Mapping to AuthenticationContext
 
-HTTP client service that calls the Ory Hydra token introspection endpoint.
+Resolver hooks in **`resolvers.py`**:
 
-### JWKS Store
+- **Internal** success → **`SYSTEM`** + **`SystemEntity`**, **`scopes`** from payload **`scp`**; system id from **`metadata["id"]`** when present.
+- **Customer** success → **`ADMIN`** or **`CUSTOMER`** with lite entity from **`ext`**, scopes from **`scp`**.
 
-In-memory store for JSON Web Keys used to decode JWT tokens.
+## Application wiring
 
-```python
-from velmios.core.security.jwt import configure_jwks_in_memory_store, depends_jwks_in_memory_store
-```
-
-## Dependency Wiring
-
-| Dependency | Returns | Description |
-|---|---|---|
-| `depends_jwt_bearer_authentication_config()` | `JWTBearerAuthenticationConfig` | JWT Bearer configuration from app settings |
-| `depends_jwks_in_memory_store()` | `JWKStoreAbstract` | JWKS in-memory key store |
-| `depends_velmios_jwt_token_verifier()` | `VelmiosJWTTokenVerifier` | Token verifier via Hydra |
-| `depends_velmios_hydra_instrospect_service()` | `VelmiosHydraInstrospectService` | Hydra introspection HTTP client |
-| `depends_velmios_jwt_authentication_service()` | `VelmiosJWTAuthenticationService` | Fully configured JWT auth service |
-
-All dependencies are automatically wired when using `depends_authentication_resolver()`.
-
-## JWT to AuthenticationContext Mapping
-
-When JWT authentication succeeds, the `jwt_authentication_context_hook` in `resolvers.py` creates:
-
-```python
-AuthenticationContext(
-    realm_id=VELMIOS_REALM_ID,
-    persona=AuthenticationPersona.SYSTEM,
-    entity=SystemEntity(
-        id=SystemId(payload.metadata["id"]),  # or default UUID if no metadata
-        realm_id=VELMIOS_REALM_ID,
-        role=SystemRole.SYSTEM,
-    ),
-    scopes=payload.scp,
-)
-```
-
-NOTE: JWT-authenticated entities are always `SYSTEM` persona in the Velmios realm.
+**`VelmiosApplicationAbstract`** (`velmios.core.app.applications`) configures **two** JWT bearer configs (`internal` / `customer`) and JWKS where applicable. Consumer apps should follow the same split when mounting dependencies.
 
 ## Reference
 
+- `src/velmios/core/security/jwt/__init__.py`
 - `src/velmios/core/security/jwt/objects.py`
 - `src/velmios/core/security/jwt/services.py`
 - `src/velmios/core/security/jwt/verifiers.py`
 - `src/velmios/core/security/jwt/decoders.py`
-- `src/velmios/core/security/jwt/hydra.py`
-- `src/velmios/core/security/jwt/jwks_store.py`
-- `src/velmios/core/security/jwt/depends.py`
+- `src/velmios/core/security/jwt/stores.py`
+- `src/velmios/core/services/hydra.py`

@@ -11,8 +11,35 @@
 Entities are Pydantic `BaseModel` subclasses representing the four persona types in the Velmios platform. They enforce realm boundary rules via field validators.
 
 ```python
-from velmios.core.entities import AdminEntity, CustomerEntity, PublicUserEntity, SystemEntity
+from velmios.core.entities import (
+    AdminEntity,
+    AdminLiteEntity,
+    CustomerEntity,
+    CustomerLiteEntity,
+    FeatureForRealmEntity,
+    FeaturesForRealmEntity,
+    FeaturesForRealmQueryFilter,
+    PublicUserEntity,
+    SystemEntity,
+)
 ```
+
+## Lite entities (`AdminLiteEntity`, `CustomerLiteEntity`)
+
+Subset types used in **`AuthenticationContext`** for **Kratos session** and **customer JWT** flows. They carry identifiers, realm, role, persona, and identity fields needed for authorization without the full profile surface of **`AdminEntity`** / **`CustomerEntity`**.
+
+- Import from **`velmios.core.entities`** alongside full entities.
+- Same **realm boundary** rules as their full counterparts (validators on lite types enforce Velmios vs tenant realm).
+
+## Feature aggregates
+
+Realm-scoped feature toggles and metadata:
+
+- **`FeatureForRealmEntity`** — one feature row (searchable fields for query models).
+- **`FeaturesForRealmEntity`** — persisted aggregate (`PersistedEntity[FeatureForRealmEntityId]`) with `realm_id`, `features`, `configuration_checksum`.
+- **`FeaturesForRealmQueryFilter`** — dynamic query filter from **`FeaturesForRealmEntity.build_query_filter_model()`**.
+
+See [Features and resource APIs](features-and-resource-apis.md).
 
 ## Entity Reference
 
@@ -157,3 +184,4 @@ Abstract base class for entities that represent authenticated human users (`Admi
 - `src/velmios/core/entities/customer.py`
 - `src/velmios/core/entities/public_user.py`
 - `src/velmios/core/entities/system.py`
+- `src/velmios/core/entities/features.py`

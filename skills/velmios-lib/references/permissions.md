@@ -124,7 +124,12 @@ class AbstractDependsPermissionsRequired(ABC):
 ```python
 from fastapi import Depends
 from velmios.core.services.permissions import AbstractDependsPermissionsRequired, Permission
-from velmios.core.security import AuthenticationContext, depends_authentication_context
+from velmios.core.security import (
+    AuthenticationContext,
+    AuthenticationType,
+    DependsAuthenticationContext,
+)
+from velmios.core.types import AuthenticationPersona
 
 
 class DependsPermissionsRequired(AbstractDependsPermissionsRequired):
@@ -136,7 +141,18 @@ class DependsPermissionsRequired(AbstractDependsPermissionsRequired):
 
     def __call__(
         self,
-        authentication_context: AuthenticationContext = Depends(depends_authentication_context),
+        authentication_context: AuthenticationContext = Depends(
+            DependsAuthenticationContext(
+                authorized_personas=[
+                    AuthenticationPersona.ADMIN,
+                    AuthenticationPersona.CUSTOMER,
+                ],
+                supported_authentication_types=[
+                    AuthenticationType.HYDRA_CUSTOMER_JWT,
+                    AuthenticationType.KRATOS_SESSION,
+                ],
+            )
+        ),
     ) -> AuthenticationContext:
         return super().__call__(authentication_context=authentication_context)
 
@@ -171,7 +187,7 @@ class PermissionsRequiredError(FastAPIFactoryUtilitiesError):
         required_permissions: list[Permission],
         context_permissions: list[Permission],
         persona: AuthenticationPersona,
-        realm_id: RealmId,
+        realm_id: RealmId | None,
     ) -> None: ...
 ```
 

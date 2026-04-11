@@ -1,137 +1,71 @@
 # Authentication
 
-## When to Use
+## When to use
 
-- When you need to understand the **authentication flow** in a Velmios microservice.
-- When you need to access the **current user's identity** in a FastAPI endpoint.
-- When you need to configure the `AuthenticationResolver` with custom authentication methods.
-- When you need to check the **persona type** of the authenticated user.
+- Understanding how a request becomes an **`AuthenticationContext`**.
+- Configuring **`AuthenticationResolver`** with JWT and optional Kratos session authentication.
+- Reading **persona**, **realm**, **entity**, and **scopes** on the context.
 
 ## Overview
 
-The authentication system resolves incoming requests to an `AuthenticationContext` by trying multiple authentication methods (JWT and Kratos sessions) in parallel.
+Velmios resolves HTTP requests to an immutable **`AuthenticationContext`** using **`AuthenticationResolver`**, which runs registered **`AuthenticationAbstract`** implementations (from `fastapi_factory_utilities`) and **context hooks** that map successful auth to Velmios types.
 
 ```python
-from velmios.core.security import AuthenticationContext, AuthenticationPersona
-from velmios.core.security import depends_authentication_resolver
+from velmios.core.security import AuthenticationContext, depends_authentication_resolver
+from velmios.core.types import AuthenticationPersona
 ```
 
 ## AuthenticationContext
 
-Immutable Pydantic model containing the result of authentication.
+Pydantic model (`frozen=True`) holding the authenticated subject.
 
-```python
-class AuthenticationContext(BaseModel):
-    realm_id: RealmId
-    persona: AuthenticationPersona
-    entity: Union[AdminEntity, CustomerEntity, PublicUserEntity, SystemEntity] | None
-    scopes: list[OAuth2Scope]
-```
-
-### Properties
-
-| Property | Returns | Raises |
+| Field | Type | Notes |
 |---|---|---|
-| `.admin` | `AdminEntity` | `ValueError` if entity is not an admin |
-| `.customer` | `CustomerEntity` | `ValueError` if entity is not a customer |
-| `.public_user` | `PublicUserEntity` | `ValueError` if entity is not a public user |
-| `.system` | `SystemEntity` | `ValueError` if entity is not a system |
+| `realm_id` | `RealmId \| None` | `None` only for `AuthenticationPersona.NONE` per validators |
+| `persona` | `AuthenticationPersona` | `admin`, `customer`, `public`, `system`, `none` |
+| `entity` | `AdminLiteEntity \| CustomerLiteEntity \| PublicUserEntity \| SystemEntity \| None` | **Lite** variants for admin/customer from JWT or Kratos hooks |
+| `scopes` | `list[OAuth2Scope]` | From JWT payloads when applicable |
 
-### Methods
+### Typed accessors
 
-| Method | Returns | Description |
-|---|---|---|
-| `persona_is(persona)` | `bool` | Check if the authenticated user matches a specific persona |
+Properties **`.admin`**, **`.customer`**, **`.public_user`**, **`.system`** raise **`ValueError`** if the entity is missing or not of that type. Use **`persona_is(AuthenticationPersona.…)`** before accessing.
 
-### Usage
+### Helpers
 
-```python
-from fastapi import Depends
-from velmios.core.security import AuthenticationContext, AuthenticationPersona, depends_authentication_context
-
-@app.get("/resource")
-async def get_resource(
-    auth: AuthenticationContext = Depends(depends_authentication_context),
-) -> dict:
-    if auth.persona_is(AuthenticationPersona.ADMIN):
-        admin = auth.admin
-        return {"admin_id": str(admin.id)}
-    elif auth.persona_is(AuthenticationPersona.CUSTOMER):
-        customer = auth.customer
-        return {"customer_id": str(customer.id), "realm": str(customer.realm_id)}
-    elif auth.persona_is(AuthenticationPersona.SYSTEM):
-        system = auth.system
-        return {"system_id": str(system.id), "scopes": auth.scopes}
-```
+- **`persona_is(persona)`** — equality check on persona.
+- **`is_velmios_admin_or_system()`** — Velmios-realm admin or Velmios system process.
 
 ## AuthenticationPersona
 
-Enum defining the four persona types.
-
-| Value | String | Description |
-|---|---|---|
-| `CUSTOMER` | `"customer"` | Tenant customer authenticated via Kratos session |
-| `PUBLIC` | `"public"` | Public/guest user (optionally authenticated) |
-| `ADMIN` | `"admin"` | Velmios admin authenticated via Kratos session |
-| `SYSTEM` | `"system"` | System process authenticated via JWT/Hydra |
+`StrEnum` in **`velmios.core.types`**: `CUSTOMER`, `PUBLIC`, `ADMIN`, `SYSTEM`, `NONE`. Also re-exported from **`velmios.core.security`** for convenience.
 
 ## AuthenticationType
 
-Flag enum defining the supported authentication methods.
-
-| Value | Description |
-|---|---|
-| `HYDRA_JWT` | OAuth2 JWT token verified via Ory Hydra introspection |
-| `KRATOS_SESSION` | Session cookie verified via Ory Kratos whoami endpoint |
+`Flag` enum in **`velmios.core.security`**: `HYDRA_INTERNAL_JWT`, `HYDRA_CUSTOMER_JWT`, `KRATOS_SESSION`, `NONE`. Used to limit which mechanisms a route or dependency considers.
 
 ## AuthenticationResolver
 
-Orchestrates multiple authentication methods and resolves the request to an `AuthenticationContext`.
+- Register authentications with **`add_authentication`**, ordered by insertion.
+- **`authenticate(request)`** tries supported types; the **first successful** authentication (per resolver logic) wins, then **persona** is checked against **`_authorized_personas`** when configured.
+- **`set_authorized_personas`** / **`set_supported_authentication_types`** are invoked by **`DependsAuthenticationContext`** before **`authenticate`**.
 
-```python
-class AuthenticationResolver:
-    def add_authentication(
-        self,
-        authentication: AuthenticationAbstract,
-        authentication_type: AuthenticationType,
-        authentication_context_hook: Callable | None = None,
-    ) -> None: ...
+### Factory dependencies
 
-    def set_authorized_personas(self, authorized_personas: list[AuthenticationPersona]) -> None: ...
-    def authorize_public(self) -> bool: ...
-    async def authenticate(self, request: Request) -> AuthenticationContext: ...
-```
+| Function | Registered mechanisms |
+|---|---|
+| **`depends_authentication_resolver()`** | Internal JWT + customer JWT |
+| **`depends_authentication_resolver_with_kratos_session()`** | Internal JWT + customer JWT + Kratos session (`velmios.core.security.resolvers`; not re-exported from `velmios.core.security` yet) |
 
-### Authentication Flow
+### Context hooks (high level)
 
-1. All registered authentication methods run in parallel (`asyncio.gather`).
-2. The first method that succeeds without errors provides the `AuthenticationContext` via its hook.
-3. If no method succeeds and public access is authorized, a `PublicUserEntity` is created using the `realm_id` query parameter.
-4. If all methods fail and public access is not authorized, raises `HTTPException(401)`.
+- **Internal JWT** → `SYSTEM` + **`SystemEntity`** in Velmios realm; **`scopes`** from token `scp`.
+- **Customer JWT** → **`ADMIN`** or **`CUSTOMER`** with **`AdminLiteEntity`** / **`CustomerLiteEntity`** from payload extension; scopes from `scp`.
+- **Kratos session** → **`AdminLiteEntity`** if identity realm is Velmios; else **`CustomerLiteEntity`** with cross-check against optional `realm_id` query parameter.
 
-### Default Configuration
+## Errors
 
-The `depends_authentication_resolver()` dependency pre-configures:
-- **JWT authentication** via `VelmiosJWTAuthenticationService` with `jwt_authentication_context_hook`.
-- **Kratos session authentication** via `VelmiosKratosSessionAuthenticationService` with `kratos_session_authentication_context_hook`.
-
-### Authentication Context Hooks
-
-**JWT hook** (`jwt_authentication_context_hook`):
-- Extracts `SystemId` from `jwt_payload.metadata["id"]` (defaults to `00000000-...` if no metadata).
-- Creates `AuthenticationContext` with `persona=SYSTEM`, `entity=SystemEntity`, and OAuth2 scopes.
-
-**Kratos hook** (`kratos_session_authentication_context_hook`):
-- If the Kratos session realm is the Velmios realm: creates `AdminEntity` with `persona=ADMIN`.
-- Otherwise: creates `CustomerEntity` with `persona=CUSTOMER`.
-- Validates that the `realm_id` query parameter matches the session realm (prevents cross-realm impersonation).
-
-## Error Handling
-
-| Error | HTTP Status | Condition |
-|---|---|---|
-| `HTTPException(401)` | Unauthorized | No authentication method succeeded and public access not allowed |
-| `HTTPException(401)` | Unauthorized | JWT payload is `None` or missing metadata `id` |
+- **`VelmiosNotAuthenticatedError`** — no successful authentication when none/public/none shortcuts apply. Applications should translate to HTTP **401** where appropriate.
+- Resolver and hooks may raise **`VelmiosNotAuthenticatedError`** for malformed tokens or policy violations.
 
 ## Reference
 
