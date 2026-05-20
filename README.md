@@ -33,17 +33,24 @@ Installed paths:
 
 | Skill | Description |
 |-------|-------------|
+| **[commit](skills/commit/SKILL.md)** | Prepare logical commits, Conventional Commit messages, and Unreleased changelog updates |
+| **[fastapi-factory-utilities](skills/fastapi-factory-utilities/SKILL.md)** | Build FastAPI microservices with plugins, typed query filters, PUT reconciliation, audit publishing, Uvicorn/Hypercorn ASGI servers, OAuth2/OIDC, OpenTelemetry, and CSRF & validation handlers |
 | **[git](skills/git/SKILL.md)** | Git commit conventions, branch naming, semantic versioning, changelog maintenance, and pre-commit hooks |
 | **[http-api-architecture](skills/http-api-architecture/SKILL.md)** | REST API design patterns, caching strategies, distributed tracing, OAuth2/OIDC flows, and webhook security |
-| **[jira-epics-stories](skills/jira-epics-stories/SKILL.md)** | Writing epics and user stories with acceptance criteria; creating or updating them in Jira via Jira MCP when available |
+| **[jira-cli](skills/jira-cli/SKILL.md)** | Interact with Jira from the command line using ankitpokhrel/jira-cli (create, update, list, link, comment) |
+| **[jira-epics-stories](skills/jira-epics-stories/SKILL.md)** | Writing epics and user stories with acceptance criteria; creating or updating them in Jira via jira-cli |
 | **[openapi](skills/openapi/SKILL.md)** | OpenAPI 3.1 specification design, validation with Spectral, and best practices |
 | **[openapi-testing](skills/openapi-testing/SKILL.md)** | API testing with Portman and Newman for contract testing |
+| **[python](skills/python/SKILL.md)** | Python engineering principles, coding standards, typing, async patterns, testing, and documentation |
 | **[python-architecture](skills/python-architecture/SKILL.md)** | Clean architecture patterns for Python/FastAPI services with Poetry and Cloud Native Buildpacks |
 | **[python-docstring](skills/python-docstring/SKILL.md)** | Python documentation standards and docstring conventions |
 | **[python-lint](skills/python-lint/SKILL.md)** | Python linting configuration with Pylint and code quality tools |
-| **[python-starter](skills/python-starter/SKILL.md)** | Python project bootstrapping and initial setup |
 | **[python-test](skills/python-test/SKILL.md)** | Python testing with pytest, fixtures, mocks, and Testcontainers |
+| **[release](skills/release/SKILL.md)** | Release workflow: changelog, git state, atomic commits, SemVer, and annotated tags |
 | **[software-architecture](skills/software-architecture/SKILL.md)** | Clean Architecture, DDD, SOLID principles, and microservices patterns |
+| **[story-driven-development](skills/story-driven-development/SKILL.md)** | Feature implementation from user story through branch, scenarios, contract, TDD, quality gate, commit, and PR |
+| **[velmios-lib](skills/velmios-lib/SKILL.md)** | Velmios Core types, lite entities, composable permissions, use-case abstracts, realm-aware audit events, feature flags, application scaffolding, and centralized security exception handling with telemetry |
+| **[velmios-projects](skills/velmios-projects/SKILL.md)** | Catalog of Velmios-related projects with absolute paths and summaries for cross-project discovery |
 | **[writing-skills](skills/writing-skills/SKILL.md)** | How to write Agent Skills: structure, descriptions, natural language strength (MUST/SHOULD/MAY), and checklists |
 
 ## Skill Structure
