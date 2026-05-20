@@ -1,153 +1,152 @@
 # Application Framework
 
-The application framework provides the foundation for building microservices with a plugin-based architecture.
+The application framework provides the foundation for building microservices with a plugin-based architecture. It handles FastAPI lifespan, plugin lifecycle, configuration loading, and ASGI server selection (Uvicorn or Hypercorn).
 
-## When to Use
+## When to use
 
-Use the application framework when:
-- Building FastAPI microservices that need structured initialization
-- Creating plugin-based architectures for extensibility
-- Managing application lifecycle (startup, shutdown)
-- Loading configuration from YAML files with environment overrides
-- Building applications that need to integrate multiple services (database, message broker, etc.)
+- Building FastAPI microservices that need structured initialization.
+- Creating plugin-based architectures for extensibility.
+- Managing application lifecycle (startup, shutdown).
+- Loading configuration from YAML files with environment overrides.
+- Choosing between Uvicorn and Hypercorn for the ASGI server.
+- Registering shared CSRF and validation exception handlers.
 
 ## ApplicationAbstract
 
-The base class for all applications. Subclasses must implement lifecycle methods and define required class variables.
+Subclass for every microservice.
 
-### Required Class Variables
+```python
+class ApplicationAbstract(ABC):
+    PACKAGE_NAME: ClassVar[str]
+    CONFIG_CLASS: ClassVar[type[RootConfig]] = RootConfig
+    CONFIG_FILENAME: ClassVar[str] = "application.yaml"
+    ODM_DOCUMENT_MODELS: ClassVar[list[type[Document]]]
 
-- `PACKAGE_NAME: ClassVar[str]` - The package name for configuration loading
-- `CONFIG_CLASS: ClassVar[type[RootConfig]]` - The configuration class (defaults to `RootConfig`)
-- `ODM_DOCUMENT_MODELS: ClassVar[list[type[Document]]]` - List of Beanie document models
+    def __init__(self, root_config: RootConfig, plugins: list[PluginAbstract], fastapi_builder: FastAPIBuilder): ...
 
-### Lifecycle Methods
+    def setup(self) -> None:
+        """Build the FastAPI app, register `status_service` / `config` / `application` on state, call `configure()`, then load plugins."""
+
+    @asynccontextmanager
+    async def fastapi_lifespan(self, fastapi: FastAPI) -> AsyncGenerator[None, None]: ...
+```
+
+Lifespan order on startup: `plugin.on_startup()` (in declaration order) → `application.on_startup()`. On shutdown the reverse: `application.on_shutdown()` → `plugin.on_shutdown()`.
+
+### Required class variables
+
+- `PACKAGE_NAME: ClassVar[str]` — used to locate `{PACKAGE_NAME}/application.yaml`.
+- `CONFIG_CLASS: ClassVar[type[RootConfig]]` — root config schema (defaults to `RootConfig`).
+- `ODM_DOCUMENT_MODELS: ClassVar[list[type[Document]]]` — Beanie document models loaded by the ODM plugin.
+
+### Lifecycle methods (abstract)
 
 ```python
 @abstractmethod
-def configure(self) -> None:
-    """Configure the application (add routes, middleware, etc.)."""
+def configure(self) -> None: ...
 
 @abstractmethod
-async def on_startup(self) -> None:
-    """Custom startup logic."""
+async def on_startup(self) -> None: ...
 
 @abstractmethod
-async def on_shutdown(self) -> None:
-    """Custom shutdown logic."""
+async def on_shutdown(self) -> None: ...
 ```
 
-### Application State
+### Helper methods
 
-Applications can add values to the FastAPI app state:
+- `configure_csrf()` — reads `config.csrf` (`secret`, `cookie_samesite`, `cookie_secure`), wires `fastapi-csrf-protect`, and registers `CsrfProtect` on `app.state` via `DependsCsrfProtect.import_to_state`. Must be called from your `configure()` implementation when CSRF is required.
+- `add_to_state(key, value)` — schedule a value to be added to `app.state` once the ASGI app is built. Reused for plugin resources.
+- `get_asgi_app()`, `get_config()`, `get_status_service()` — accessors.
+
+### Exception handler helpers
 
 ```python
-self.add_to_state(key="my_service", value=my_service_instance)
+from fastapi_factory_utilities.core.app import (
+    register_exception_handlers,
+    register_csrf_protect_exception_handler,
+)
+
+
+register_exception_handlers(app)                    # RequestValidationError → 422
+register_csrf_protect_exception_handler(app)        # CsrfProtectError → 403
 ```
 
-Values are accessible via `request.app.state.my_service` in FastAPI dependencies.
-
-### Plugin Management
-
-Plugins are automatically loaded, started, and shut down:
-
-- `load_plugins()` - Calls `on_load()` on all plugins (sync initialization)
-- `startup_plugins()` - Calls `on_startup()` on all plugins (async initialization)
-- `shutdown_plugins()` - Calls `on_shutdown()` on all plugins (cleanup)
+The validation handler logs `Validation error` and returns `{"detail": exc.errors()}` (HTTP 422). The CSRF handler logs `CSRF error` and returns `{"detail": "CSRF token is invalid"}` (HTTP 403). See [CSRF and validation](csrf-and-validation.md) for the full envelope contract.
 
 ## ApplicationGenericBuilder
 
 Builder pattern for constructing applications with type safety.
-
-### Usage
 
 ```python
 class MyAppBuilder(ApplicationGenericBuilder[MyApp]):
     def get_default_plugins(self) -> list[PluginAbstract]:
         return [ODMPlugin(), OpenTelemetryPlugin()]
 
-    def __init__(self, plugins: list[PluginAbstract] | None = None):
-        if plugins is None:
-            plugins = self.get_default_plugins()
-        super().__init__(plugins=plugins)
+    def __init__(self, plugins: list[PluginAbstract] | None = None) -> None:
+        super().__init__(plugins=plugins or self.get_default_plugins())
 ```
 
-### Builder Methods
+### Methods
 
-- `add_plugin_to_activate(plugin: PluginAbstract) -> Self` - Add a plugin
-- `add_config(config: RootConfig) -> Self` - Set custom configuration
-- `add_fastapi_builder(fastapi_builder: FastAPIBuilder) -> Self` - Set custom FastAPI builder
-- `build(**kwargs) -> T` - Build the application instance
-- `build_and_serve() -> None` - Build and start Uvicorn server
-- `configure_logging(mode, logging_config) -> None` - Configure logging
+- `add_plugin_to_activate(plugin)` — append a plugin.
+- `add_config(config)` — provide a pre-built `RootConfig`.
+- `add_fastapi_builder(fastapi_builder)` — replace the default `FastAPIBuilder`.
+- `set_server_implementation(ServerImplementationEnum.UVICORN | HYPERCORN)` — pick the ASGI server.
+- `build(**kwargs)` — instantiate the application; extra kwargs are forwarded to the application constructor (used by Velmios for JWT configs / introspect services).
+- `build_as_uvicorn_utils(**kwargs)` / `build_as_hypercorn_utils(**kwargs)` — build the application and wrap it in the matching server utility (`UvicornUtils` / `HypercornUtils`).
+- `build_and_serve(**kwargs)` — convenience: build, configure logging from `root_config.logging`, and serve with the selected ASGI server. `KeyboardInterrupt` is swallowed for clean local shutdowns.
+- `configure_logging(mode, logging_config)` — call `setup_log(...)` directly.
 
-### Configuration Loading
+The builder's `build_*` methods forward `**kwargs`, so application classes accept additional initializer parameters (e.g. Velmios `jwt_bearer_authentication_config_internal`).
 
-If no config is provided, the builder automatically loads configuration from:
-- `{PACKAGE_NAME}/application.yaml` - YAML configuration file
-- Environment variables - Override YAML values
+### ASGI server utilities
+
+Both utilities expose:
+
+- `add_ssl_certificates(ssl_keyfile=..., ssl_certfile=..., ssl_keyfile_password=...)`
+- `serve()` — start the server.
+
+They read host, port, workers, and reload flag from `config.server` and `config.development`. Hypercorn maps these onto `hypercorn.config.Config`; Uvicorn onto `uvicorn.Config`. `clean_uvicorn_logger()` / `clean_hypercorn_logger()` integrate the server's logger with structlog.
 
 ## PluginAbstract
 
-Base class for all plugins. Plugins extend application functionality.
+Base class for all plugins. The plugin lifecycle is:
 
-### Plugin Lifecycle
-
-1. **on_load()** - Synchronous initialization
-   - Validate configuration
-   - Register dependencies
-   - Add to application state
-
-2. **on_startup()** - Asynchronous initialization
-   - Connect to external services
-   - Initialize async resources
-   - Start background tasks
-
-3. **on_shutdown()** - Cleanup
-   - Close connections
-   - Clean up resources
-   - Stop background tasks
-
-### Plugin State
-
-Plugins can add values to the FastAPI app state:
-
-```python
-self._add_to_state(key="my_resource", value=my_resource)
-```
-
-### Example Plugin
+1. `on_load()` — synchronous initialization (validate configuration, register dependencies, add to application state).
+2. `on_startup()` — asynchronous initialization (connect to external services, start background tasks).
+3. `on_shutdown()` — cleanup (close connections, stop background tasks).
 
 ```python
 class MyPlugin(PluginAbstract):
     def on_load(self) -> None:
-        # Sync initialization
-        assert self._application is not None
         config = self._application.get_config()
-        # Validate config, register dependencies
+        ...
 
-    async def on_startup(self) -> None:
-        # Async initialization
-        # Connect to services, start tasks
+    async def on_startup(self) -> None: ...
 
-    async def on_shutdown(self) -> None:
-        # Cleanup
-        # Close connections, stop tasks
+    async def on_shutdown(self) -> None: ...
 ```
 
-## Complete Example
+`self._add_to_state(key, value)` schedules a value to be added to the ASGI app state once available.
+
+## Complete example
 
 ```python
 from fastapi_factory_utilities.core.app import (
     ApplicationAbstract,
     ApplicationGenericBuilder,
     RootConfig,
+    register_csrf_protect_exception_handler,
+    register_exception_handlers,
 )
+from fastapi_factory_utilities.core.app.builder import ServerImplementationEnum
 from fastapi_factory_utilities.core.plugins.odm_plugin import ODMPlugin
 from fastapi_factory_utilities.core.plugins.opentelemetry_plugin import OpenTelemetryPlugin
 
+
 class MyAppConfig(RootConfig):
-    pass
+    """Add service-specific config fields here."""
+
 
 class MyApp(ApplicationAbstract):
     CONFIG_CLASS = MyAppConfig
@@ -155,151 +154,40 @@ class MyApp(ApplicationAbstract):
     ODM_DOCUMENT_MODELS = []
 
     def configure(self) -> None:
-        # Add routes, middleware
-        from fastapi import APIRouter
-        router = APIRouter()
-        self.fastapi_builder.add_api_router(router)
+        self.configure_csrf()
+        register_csrf_protect_exception_handler(self.get_asgi_app())
+        register_exception_handlers(self.get_asgi_app())
 
-    async def on_startup(self) -> None:
-        # Custom startup logic
-        pass
+    async def on_startup(self) -> None: ...
 
-    async def on_shutdown(self) -> None:
-        # Custom shutdown logic
-        pass
+    async def on_shutdown(self) -> None: ...
+
 
 class MyAppBuilder(ApplicationGenericBuilder[MyApp]):
-    def get_default_plugins(self):
+    def get_default_plugins(self) -> list:
         return [ODMPlugin(), OpenTelemetryPlugin()]
 
-    def __init__(self, plugins=None):
-        if plugins is None:
-            plugins = self.get_default_plugins()
-        super().__init__(plugins=plugins)
 
-# Build and run
 if __name__ == "__main__":
-    MyAppBuilder().build_and_serve()
+    MyAppBuilder().set_server_implementation(ServerImplementationEnum.HYPERCORN).build_and_serve()
 ```
 
-## Error Handling
+## Best practices
 
-The application framework can encounter errors during initialization, plugin loading, and lifecycle management.
-
-### Plugin Initialization Errors
-
-```python
-class MyPlugin(PluginAbstract):
-    def on_load(self) -> None:
-        try:
-            # Validate configuration
-            config = self._application.get_config()
-            if not config.my_setting:
-                raise ValueError("my_setting is required")
-        except ValueError as e:
-            # Handle configuration errors
-            logger.error("Plugin configuration error", error=e)
-            raise
-
-    async def on_startup(self) -> None:
-        try:
-            # Connect to external service
-            await self.connect_to_service()
-        except ConnectionError as e:
-            # Handle connection failures
-            logger.error("Failed to connect to service", error=e)
-            # Optionally raise to prevent application startup
-            raise
-        except Exception as e:
-            # Handle other startup errors
-            logger.error("Plugin startup error", error=e)
-            raise
-```
-
-### Configuration Loading Errors
-
-```python
-from fastapi_factory_utilities.core.app.config import GenericConfigBuilder
-from pydantic import ValidationError
-
-try:
-    builder = GenericConfigBuilder[MyRootConfig](
-        package_name="my_app",
-        config_class=MyRootConfig,
-    )
-    config = builder.build()
-except FileNotFoundError as e:
-    # Handle missing configuration file
-    logger.error("Configuration file not found", error=e)
-    raise
-except ValidationError as e:
-    # Handle configuration validation errors
-    logger.error("Invalid configuration", errors=e.errors())
-    raise
-except Exception as e:
-    # Handle other configuration errors
-    logger.error("Configuration loading error", error=e)
-    raise
-```
-
-### Application Startup Errors
-
-```python
-class MyApp(ApplicationAbstract):
-    async def on_startup(self) -> None:
-        try:
-            # Custom startup logic
-            await self.initialize_services()
-        except Exception as e:
-            # Log and handle startup errors
-            logger.error("Application startup error", error=e)
-            # Consider whether to raise (fail fast) or continue
-            raise
-```
-
-### Plugin Loading Errors
-
-```python
-class MyAppBuilder(ApplicationGenericBuilder[MyApp]):
-    def get_default_plugins(self):
-        plugins = []
-        try:
-            plugins.append(ODMPlugin())
-            plugins.append(OpenTelemetryPlugin())
-        except Exception as e:
-            # Handle plugin creation errors
-            logger.error("Failed to create plugin", error=e)
-            raise
-        return plugins
-```
-
-### Shutdown Errors
-
-```python
-class MyPlugin(PluginAbstract):
-    async def on_shutdown(self) -> None:
-        try:
-            # Cleanup resources
-            await self.close_connections()
-        except Exception as e:
-            # Log shutdown errors but don't raise
-            # Application is shutting down anyway
-            logger.warning("Plugin shutdown error", error=e)
-```
-
-## Best Practices
-
-1. **Plugin Order**: Load plugins in dependency order (e.g., ODM before repositories)
-2. **State Management**: Use `add_to_state()` for resources needed across the application
-3. **Lifecycle Methods**: Keep `configure()` lightweight, use `on_startup()` for heavy initialization
-4. **Error Handling**: Handle plugin initialization failures gracefully
-5. **Configuration**: Use YAML files with environment variable overrides for flexibility
-6. **Type Safety**: Leverage generic types for builder and application classes
-7. **Plugin Design**: Keep plugins focused and composable
-8. **Shutdown Cleanup**: Always clean up resources in `on_shutdown()` methods
+1. Keep `configure()` lightweight (routes, middleware, CSRF, handlers). Do heavy lifting in `on_startup()` so the FastAPI lifespan reports startup errors clearly.
+2. Always register both `register_exception_handlers(app)` and `register_csrf_protect_exception_handler(app)` when CSRF is enabled.
+3. Pick the server implementation per environment (e.g. Hypercorn for HTTP/2 / HTTP/3, Uvicorn for legacy stacks). The choice is opaque to the rest of the app.
+4. Use `add_to_state(...)` for resources needed across dependencies (status service, JWT store, audit publishers).
+5. Plugin order matters: load `ODMPlugin` before repositories, and `OpenTelemetryPlugin` early so spans cover the rest of startup.
 
 ## Reference
 
-- `src/fastapi_factory_utilities/core/app/application.py` - ApplicationAbstract
-- `src/fastapi_factory_utilities/core/app/builder.py` - ApplicationGenericBuilder
-- `src/fastapi_factory_utilities/core/plugins/abstracts.py` - PluginAbstract
+- `src/fastapi_factory_utilities/core/app/application.py`
+- `src/fastapi_factory_utilities/core/app/builder.py`
+- `src/fastapi_factory_utilities/core/app/handlers.py`
+- `src/fastapi_factory_utilities/core/app/csrf.py`
+- `src/fastapi_factory_utilities/core/app/fastapi_builder.py`
+- `src/fastapi_factory_utilities/core/utils/uvicorn.py`
+- `src/fastapi_factory_utilities/core/utils/hypercorn.py`
+- `src/fastapi_factory_utilities/core/plugins/__init__.py`
+- See also: [CSRF and validation](csrf-and-validation.md).

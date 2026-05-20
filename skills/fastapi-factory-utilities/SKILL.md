@@ -1,28 +1,34 @@
 ---
 name: fastapi-factory-utilities
-description: Build FastAPI microservices with plugins, typed HTTP query filters, message brokers, OAuth2/OIDC, OpenTelemetry, and structured logging.
+description: Build FastAPI microservices with plugins, typed PUT updates and reconciliation, message brokers, OAuth2/OIDC, OpenTelemetry, CSRF and validation handlers, Uvicorn or Hypercorn, and structured logging.
 metadata:
   author: Deerhide
-  version: 1.0.1
+  version: 2.0.0
 ---
 # FastAPI Factory Utilities
 
+A library for building production-ready FastAPI microservices with a plugin-based architecture, typed HTTP query filters, response/update model builders, OAuth2/OIDC integration (Hydra, Kratos), an audit-event pipeline, and built-in CSRF, validation, and exception handling.
+
 ## When to use this skill?
 
-- Use this skill when building FastAPI microservices with the fastapi_factory_utilities library.
-- Use this skill when implementing plugin-based architectures in FastAPI applications.
-- Use this skill when setting up OAuth2/OIDC authentication with Hydra or Kratos.
-- Use this skill when configuring MongoDB with Beanie ODM in FastAPI applications.
-- Use this skill when implementing RabbitMQ message brokers with AioPika.
+- Use this skill when building FastAPI microservices with the `fastapi_factory_utilities` library (v5.x).
+- Use this skill when implementing plugin-based architectures and lifecycle hooks (`configure`, `on_startup`, `on_shutdown`).
+- Use this skill when setting up OAuth2/OIDC authentication with Hydra (introspection, JWKS) or Kratos (session, admin identity, `delete_session`).
+- Use this skill when configuring MongoDB with Beanie ODM, with `PersistedEntity` mixing in `SearchableEntity` and `ApiResponseModelAbstract`.
+- Use this skill when implementing RabbitMQ message brokers with AioPika and validated routing-key / queue / exchange types.
 - Use this skill when setting up background task processing with Taskiq and Redis.
 - Use this skill when configuring OpenTelemetry for distributed tracing and metrics.
-- Use this skill when implementing structured logging with structlog.
-- Use this skill when using dependency injection patterns with FastAPI's Depends system.
-- Use this skill when creating mock resources for testing (AioHttp, ODM repositories).
-- Use this skill when implementing repository patterns for data access.
+- Use this skill when implementing structured logging with `structlog`.
+- Use this skill when using dependency injection patterns with FastAPI's `Depends` system (typed resource depends, in-memory mockers).
+- Use this skill when creating mock resources for testing (AioHttp, in-memory ODM repositories).
+- Use this skill when implementing repository patterns for data access (`AbstractRepository`, `AbstractRepositoryInMemory`).
 - Use this skill when configuring health checks and status services.
-- Use this skill when implementing JWT Bearer authentication with JWKS verification.
-- Use this skill when implementing typed list/search query parameters (`QueryAbstract`, `SearchableEntity`, `QueryResolver`).
+- Use this skill when implementing JWT Bearer authentication with JWKS verification (`JWTBearerAuthenticationConfig`, `JWTBearerAuthenticationConfigBuilder`, configurable bearer extraction strategies, `ExpiredJWTError`).
+- Use this skill when implementing typed list/search query parameters (`QueryAbstract`, `QueryResolver`, `QueryFieldOperation`) with coercion for `UUID`, `NewType`, `enum.Flag` / `IntFlag` / `Enum` / `StrEnum`, and lists for `in` / `nin`.
+- Use this skill when defining API response and PUT update contracts (`ApiResponseModelAbstract`, `ApiResponseField`, `ApiField`, `ApiEntityAbstract`, `UpdateableField`, `reconcile_update_request`).
+- Use this skill when registering exception handlers for request validation (HTTP 422) and CSRF (HTTP 403) with `register_exception_handlers` / `register_csrf_protect_exception_handler`.
+- Use this skill when publishing audit events through `AbstractAuditPublisherService` / `AuditEventObject` / `PersistedAuditableEntity` and the `{prefix}.{domain}.{service}.{what}.{why}` routing-key pattern.
+- Use this skill when running the ASGI app under Uvicorn or Hypercorn via `build_as_uvicorn_utils`, `build_as_hypercorn_utils`, or `build_and_serve`.
 
 ---
 
@@ -37,9 +43,10 @@ See [assets/quick_start_example.py](assets/quick_start_example.py) for a minimal
 The library uses FastAPI's `Depends` for dependency injection. Plugins expose resources via dependency functions (e.g., `AioHttpResourceDepends`, `depends_status_service`, `depends_scheduler_component`).
 
 For testing, several plugins provide mockers to create mock resources:
-- **AioHttp**: `build_mocked_aiohttp_resource`, `build_mocked_aiohttp_response` - Mock HTTP clients and responses
-- **ODM**: `AbstractRepositoryInMemory` - In-memory repository for unit testing without MongoDB
-- See [AioHttp reference](references/aiohttp.md#testing-with-mocks) and [Repository Pattern](references/repository-pattern.md#testing-with-abstractrepositoryinmemory) for detailed mocking examples
+
+- **AioHttp**: `build_mocked_aiohttp_resource`, `build_mocked_aiohttp_response` — mock HTTP clients and responses.
+- **ODM**: `AbstractRepositoryInMemory` — in-memory repository for unit testing without MongoDB (also usable for `PersistedAuditableEntity`).
+- See [AioHttp reference](references/aiohttp.md#testing-with-mocks) and [Repository Pattern](references/repository-pattern.md#testing-with-abstractrepositoryinmemory) for detailed mocking examples.
 
 ## Reference Documentation
 
@@ -47,19 +54,20 @@ For testing, several plugins provide mockers to create mock resources:
 
 | Reference | Description |
 |-----------|-------------|
-| [Application Framework](references/application-framework.md) | ApplicationAbstract, builders, plugin lifecycle |
-| [Configuration](references/configuration-utilities.md) | YAML loading, environment variables, type-safe config |
-| [Logging](references/logging-utilities.md) | Structured logging with structlog |
+| [Application Framework](references/application-framework.md) | `ApplicationAbstract`, builders, plugin lifecycle, Uvicorn/Hypercorn server utilities, `register_exception_handlers` |
+| [Configuration](references/configuration-utilities.md) | YAML loading, environment variables, type-safe `RootConfig` |
+| [Logging](references/logging-utilities.md) | Structured logging with `structlog` |
 | [Status Service](references/status-service.md) | Health and readiness monitoring |
+| [CSRF and Validation](references/csrf-and-validation.md) | `fastapi-csrf-protect` integration, validation handler returning HTTP 422 with structured `detail` |
 
 ### Plugins
 
 | Reference | Description |
 |-----------|-------------|
-| [ODM Plugin (MongoDB)](references/odm-plugin.md) | MongoDB/Beanie integration, document models |
-| [Repository Pattern](references/repository-pattern.md) | Type-safe data access, in-memory testing |
+| [ODM Plugin (MongoDB)](references/odm-plugin.md) | MongoDB/Beanie integration, generic `PersistedEntity[Id]`, `ODMQueryBuilder` / `ODMFindQuery`, `id` → `_id` mapping |
+| [Repository Pattern](references/repository-pattern.md) | Type-safe data access, in-memory testing, `PersistedAuditableEntity` flow |
 | [AioHttp HTTP Client](references/aiohttp.md) | HTTP client with connection pooling, mocking utilities |
-| [AioPika RabbitMQ](references/aiopika.md) | Message publishing and consuming |
+| [AioPika RabbitMQ](references/aiopika.md) | Message publishing/consuming, validated `PartStr` / `RoutingKey` / `QueueName` / `ExchangeName`, fluent builders, wildcard listener patterns, exclusivity override |
 | [OpenTelemetry](references/opentelemetry.md) | Distributed tracing and metrics |
 | [Taskiq Tasks](references/taskiq.md) | Background task processing with Redis |
 
@@ -67,29 +75,34 @@ For testing, several plugins provide mockers to create mock resources:
 
 | Reference | Description |
 |-----------|-------------|
-| [Hydra Service](references/hydra-service.md) | OAuth2 token introspection, JWKS, client credentials |
-| [Kratos Service](references/kratos-service.md) | Identity management, session validation |
-| [Audit Service](references/audit-service.md) | Event auditing with RabbitMQ |
+| [Hydra Service](references/hydra-service.md) | OAuth2 token introspection, JWKS, client credentials, `HydraTokenIntrospectObject` |
+| [Kratos Service](references/kratos-service.md) | Identity management, session validation, admin `delete_session` |
+| [Audit Service](references/audit-service.md) | `AuditEventObject`, `UseCaseName`, `AbstractAuditPublisherService`, `PersistedAuditableEntity`, routing-key pattern |
 
 ### Security
 
 | Reference | Description |
 |-----------|-------------|
-| [JWT Authentication](references/jwt-authentication.md) | JWT Bearer validation, JWKS store, custom verifiers |
+| [JWT Authentication](references/jwt-authentication.md) | JWT Bearer validation, JWKS store, custom verifiers, configurable bearer extraction strategies, `ExpiredJWTError` |
 
-### Utilities
+### API
 
 | Reference | Description |
 |-----------|-------------|
-| [Query utilities](references/query-utilities.md) | Typed HTTP filters, sorting, `SearchableEntity`, `QueryResolver`, ODM translation |
+| [Query utilities](references/query-utilities.md) | Typed HTTP filters, sorting, `SearchableEntity`, `QueryFilterNestedAbstract`, `QueryResolver`, ODM translation, type coercion |
+| [API response & PUT update model](references/api-response-and-update.md) | `ApiResponseModelAbstract`, `ApiResponseField`, `ApiField`, `ApiEntityAbstract`, `UpdateableField`, PUT request models, `reconcile_update_request` |
 | [Pagination](references/pagination.md) | Type-safe pagination types |
 | [Ory Utilities](references/ory-utilities.md) | Ory API pagination helpers |
 
 ## Best Practices
 
-1. **Plugin Order** - Load plugins in dependency order (ODM before repositories)
-2. **Configuration** - Use YAML files with `${ENV_VAR:default}` syntax
-3. **Lifecycle** - Keep `configure()` lightweight, use `on_startup()` for connections
-4. **Observability** - Enable OpenTelemetry in production
-5. **Logging** - Use JSON mode in production for log aggregation
-6. **Testing** - Use mockers from aiohttp plugin for HTTP client tests
+1. **Plugin Order** — Load plugins in dependency order (ODM before repositories).
+2. **Configuration** — Use YAML files with `${ENV_VAR:default}` syntax.
+3. **Lifecycle** — Keep `configure()` lightweight, use `on_startup()` for connections.
+4. **Observability** — Enable OpenTelemetry in production.
+5. **Logging** — Use JSON mode in production for log aggregation.
+6. **Testing** — Use mockers from the aiohttp plugin and `AbstractRepositoryInMemory` for unit tests.
+7. **Audit events** — Always set `entity`, `domain`, `service`, and `use_case` on `AuditEventObject`; use `AbstractAuditPublisherService.publish` and react to `AuditServiceError`.
+8. **PUT updates** — Mark client-writable fields with `UpdateableField`, call `reconcile_update_request`, and surface `changed`, `ignored_paths`, and `unchanged_paths` in audit metadata.
+9. **Exception handling** — Always register validation, CSRF, and (in downstream apps) security exception handlers at app configuration time so that 401/403/422 envelopes stay consistent.
+10. **ASGI server choice** — Prefer `build_and_serve` and select Uvicorn or Hypercorn from configuration.

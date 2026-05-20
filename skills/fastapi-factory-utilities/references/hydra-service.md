@@ -1,106 +1,93 @@
 # Hydra Service
 
-The Hydra service provides OAuth2 and OpenID Connect operations with Ory Hydra.
+OAuth2 and OpenID Connect operations against Ory Hydra: token introspection, JWKS fetching, and client credentials grants.
 
-## When to Use
+## When to use
 
-Use the Hydra service when:
-- Validating OAuth2 access tokens
-- Implementing token introspection for API authentication
-- Obtaining JWKS for JWT verification
-- Implementing OAuth2 client credentials flow
-- Building service-to-service authentication
-- Integrating OAuth2/OIDC providers with Ory Hydra
-- Verifying token scopes and audiences
+- Validating OAuth2 access tokens via introspection.
+- Populating a JWKS store with Hydra public keys.
+- Implementing service-to-service authentication with the client credentials grant.
+- Inspecting `ext` claims attached to tokens (Hydra-issued).
 
 ## HydraIntrospectGenericService
 
-Generic service for token introspection with type-safe introspect objects.
+```python
+class HydraIntrospectGenericService(Generic[HydraIntrospectGeneric]):
+    def __init__(
+        self,
+        identifier: str,
+        config: JWTBearerAuthenticationConfig,
+        hydra_admin_http_resource: AioHttpClientResource,
+        hydra_public_http_resource: AioHttpClientResource,
+    ) -> None: ...
 
-### Implementation
+    def get_issuer(self) -> OAuth2Issuer: ...
+
+    async def introspect(self, token: HydraAccessToken) -> HydraIntrospectGeneric: ...
+    async def get_wellknown_jwks(self) -> list[PyJWK]: ...
+```
+
+`HydraIntrospectService = HydraIntrospectGenericService[HydraTokenIntrospectObject]` is the default specialization. Subclass it when you need typed access to additional fields under `ext`.
+
+### Introspection
 
 ```python
-from fastapi_factory_utilities.core.services.hydra import (
-    HydraIntrospectGenericService,
-    HydraTokenIntrospectObject,
-    HydraAccessToken,
-)
-from fastapi_factory_utilities.core.plugins.aiohttp import AioHttpClientResource
-from fastapi_factory_utilities.core.security.jwt import JWTBearerAuthenticationConfig
-from fastapi_factory_utilities.core.security.types import OAuth2Issuer
-
-jwt_config = JWTBearerAuthenticationConfig(
-    authorized_algorithms=["RS256"],
-    issuer=OAuth2Issuer("https://hydra.example.com"),
-)
-
-class CustomIntrospectObject(HydraTokenIntrospectObject):
-    # Add custom fields
-    custom_field: str
-
-class CustomHydraService(HydraIntrospectGenericService[CustomIntrospectObject]):
-    pass
-
-# Usage
-service = CustomHydraService(
-    identifier="hydra_custom",
+service = HydraIntrospectService(
+    identifier="hydra_internal",
     config=jwt_config,
     hydra_admin_http_resource=admin_client,
     hydra_public_http_resource=public_client,
 )
 
-# Optional: access the configured issuer
-issuer = service.get_issuer()
 
-# Introspect token
-introspect = await service.introspect(token=HydraAccessToken("access_token_here"))
+introspect = await service.introspect(token=HydraAccessToken(token))
+
+if not introspect.active:
+    raise HydraTokenInvalidError("Token is not active")
 ```
 
-### Token Introspection
+The default `HydraTokenIntrospectObject` is now `SearchableEntity + ApiResponseModelAbstract` (every field is `ApiField(searchable=True)`), so introspection results can be exposed in dynamic API response models directly.
+
+`ext` is typed as `dict[str, Any] | None` — since FFU v5.0.2 it accepts non-string nested values (lists, nested dicts) without rejecting the payload. This matches Velmios customer tokens where `ext` carries the discriminated lite-entity payload.
+
+### JWKS
 
 ```python
-async def validate_token(token: str, service: HydraIntrospectGenericService):
-    try:
-        introspect = await service.introspect(token=HydraAccessToken(token))
-
-        if not introspect.active:
-            raise ValueError("Token is not active")
-
-        return introspect
-    except HydraOperationError as e:
-        # Handle introspection error
-        raise
-```
-
-### JWKS Access
-
-```python
-# Get JWKS (list of PyJWK) for JWT verification
-jwks = await service.get_wellknown_jwks()
-
 from fastapi_factory_utilities.core.security.jwt import JWKStoreMemory
 
-# Populate an in-memory JWK store from Hydra JWKS
-jwk_store = JWKStoreMemory()
-for jwk in jwks:
-    await jwk_store.add_jwk(issuer=jwt_config.issuer, jwk=jwk)
+jwks = await service.get_wellknown_jwks()
 
-# The JWK store can now be used by GenericJWTBearerTokenDecoder in the JWT authentication module.
+store = JWKStoreMemory()
+for jwk in jwks:
+    await store.add_jwk(issuer=jwt_config.issuer, jwk=jwk)
 ```
+
+Or use the convenience helper that wraps the same flow over multiple services:
+
+```python
+from fastapi_factory_utilities.core.security.jwt import (
+    configure_jwks_in_memory_store_from_hydra_introspect_services,
+)
+
+
+store = await configure_jwks_in_memory_store_from_hydra_introspect_services(
+    introspect_service_list=[internal_service, customer_service],
+)
+```
+
+Velmios `configure_velmios_jwks_store_memory` performs this under the hood when the application enables the in-memory JWKS store.
 
 ## HydraOAuth2ClientCredentialsService
 
-Service for OAuth2 client credentials grant flow.
-
-### Usage
+OAuth2 client credentials grant.
 
 ```python
 from fastapi_factory_utilities.core.services.hydra import (
     HydraOAuth2ClientCredentialsService,
     HydraClientId,
     HydraClientSecret,
-    HydraAccessToken,
 )
+
 
 service = HydraOAuth2ClientCredentialsService(
     identifier="hydra_client_credentials",
@@ -108,62 +95,42 @@ service = HydraOAuth2ClientCredentialsService(
     application_config=app_config,
 )
 
-# Get access token
+
 token = await service.oauth2_client_credentials(
-    client_id=HydraClientId("client-id"),
-    client_secret=HydraClientSecret("client-secret"),
-    scopes=["read", "write"],
-    audience="your-audience",  # Optional, uses config default if not provided
+    client_id=HydraClientId("internal-worker"),
+    client_secret=HydraClientSecret("..."),
+    scopes=["api:read", "api:write"],
+    audience="velmios-internal",
 )
 ```
 
-### Client Credentials Flow
+`application_config` carries the default audience and timeouts. The service reuses the public HTTP resource so connection pooling is shared with the rest of the application.
+
+## DTOs
 
 ```python
-async def get_service_token(service: HydraOAuth2ClientCredentialsService):
-    token = await service.oauth2_client_credentials(
-        client_id=HydraClientId("my-service"),
-        client_secret=HydraClientSecret("secret"),
-        scopes=["api:read", "api:write"],
-    )
-    return token
+class HydraTokenIntrospectObject(SearchableEntity, ApiResponseModelAbstract, BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    active: Annotated[bool, ApiField(searchable=True)]
+    aud: Annotated[list[str], ApiField(searchable=True)]
+    client_id: Annotated[str, ApiField(searchable=True)]
+    exp: Annotated[int, ApiField(searchable=True)]
+    ext: Annotated[dict[str, Any] | None, ApiField(searchable=True)] = None
+    iat: Annotated[int, ApiField(searchable=True)]
+    iss: Annotated[str, ApiField(searchable=True)]
+    nbf: Annotated[int, ApiField(searchable=True)]
+    obfuscated_subject: Annotated[str | None, ApiField(searchable=True)] = None
+    scope: Annotated[str, ApiField(searchable=True)]
+    sub: Annotated[str, ApiField(searchable=True)]
+    token_type: Annotated[str, ApiField(searchable=True)]
+    token_use: Annotated[str, ApiField(searchable=True)]
+    username: Annotated[str | None, ApiField(searchable=True)] = None
 ```
 
-## HydraTokenIntrospectObject
+The introspection payload is parsed once and shared between every consumer (no double-parsing for downstream verifiers); this happens before payload validation so additional checks (audience match, custom claims) read the same dict.
 
-Base class for token introspection responses.
-
-### Default Implementation
-
-```python
-from fastapi_factory_utilities.core.services.hydra import (
-    HydraIntrospectService,  # Uses default HydraTokenIntrospectObject
-)
-from fastapi_factory_utilities.core.security.jwt import JWTBearerAuthenticationConfig
-from fastapi_factory_utilities.core.security.types import OAuth2Issuer
-
-jwt_config = JWTBearerAuthenticationConfig(
-    authorized_algorithms=["RS256"],
-    issuer=OAuth2Issuer("https://hydra.example.com"),
-)
-
-service = HydraIntrospectService(
-    identifier="hydra_introspect",
-    config=jwt_config,
-    hydra_admin_http_resource=admin_client,
-    hydra_public_http_resource=public_client,
-)
-
-introspect = await service.introspect(token)
-# introspect.active - bool
-# introspect.scope - str
-# introspect.client_id - str
-# etc.
-```
-
-## Error Handling
-
-The service raises `HydraOperationError` on failures:
+## Errors
 
 ```python
 from fastapi_factory_utilities.core.services.hydra.exceptions import (
@@ -171,58 +138,30 @@ from fastapi_factory_utilities.core.services.hydra.exceptions import (
     HydraTokenInvalidError,
 )
 
+
 try:
     introspect = await service.introspect(token)
 except HydraTokenInvalidError:
-    # Token is invalid
-    pass
-except HydraOperationError as e:
-    # Other Hydra operation error
-    logger.error("Hydra operation failed", error=e, status_code=e.status_code)
+    raise HTTPException(status_code=403, detail="Invalid token")
+except HydraOperationError as exc:
+    logger.error("Hydra operation failed", error=exc, status_code=exc.status_code)
+    raise
 ```
 
 ## Integration with AioHttp
 
-The service uses AioHttp client resources:
+Both services accept `AioHttpClientResource` instances. Configure the plugin with the right keys (typically `hydra_internal_public`, `hydra_internal_admin`, `hydra_customer_public`, `hydra_customer_admin` for Velmios services) and inject them via `AioHttpResourceDepends`.
 
-```python
-from fastapi_factory_utilities.core.plugins.aiohttp import (
-    AioHttpClientPlugin,
-    AioHttpResourceDepends,
-)
+## Best practices
 
-# Configure plugin
-plugin = AioHttpClientPlugin(keys=["hydra_admin", "hydra_public"])
-
-# Use in dependencies
-@router.post("/introspect")
-async def introspect_token(
-    token: str,
-    admin_client = Depends(AioHttpResourceDepends("hydra_admin")),
-    public_client = Depends(AioHttpResourceDepends("hydra_public")),
-):
-    service = HydraIntrospectService(
-        hydra_admin_http_resource=admin_client,
-        hydra_public_http_resource=public_client,
-    )
-    return await service.introspect(token)
-```
-
-## Best Practices
-
-1. **Token Validation**: Always check `active` status after introspection
-2. **Error Handling**: Handle `HydraTokenInvalidError` separately
-3. **JWKS Caching**: Cache JWKS for JWT verification
-4. **Scope Validation**: Validate scopes after introspection
-5. **Audience Validation**: Always validate audience matches expected value
-
-## See Also
-
-- [JWT Authentication](jwt-authentication.md) - Local JWT verification with JWKS (e.g., using Hydra's JWKS endpoint as key source)
-- [AioHttp HTTP Client](aiohttp.md) - HTTP client used by Hydra services and integration patterns
+1. Always check `introspect.active` before trusting any other field; Hydra returns the token's metadata even when it is expired or revoked.
+2. Reuse one JWKS store across internal and customer stacks; both Hydra deployments contribute their public keys.
+3. Validate the introspected audience matches your service before granting access; the discriminator should never rely on the client alone.
+4. Wire `HydraOAuth2ClientCredentialsService` with the public Hydra endpoint of the upstream cluster (not the admin endpoint) to keep credentials surface area minimal.
 
 ## Reference
 
-- `src/fastapi_factory_utilities/core/services/hydra/` - Hydra service implementation
-- `src/fastapi_factory_utilities/core/services/hydra/services.py` - Service classes
-- `src/fastapi_factory_utilities/core/services/hydra/objects.py` - Introspect objects
+- `src/fastapi_factory_utilities/core/services/hydra/services.py`
+- `src/fastapi_factory_utilities/core/services/hydra/objects.py`
+- `src/fastapi_factory_utilities/core/services/hydra/exceptions.py`
+- See also: [JWT authentication](jwt-authentication.md), [AioHttp HTTP client](aiohttp.md), Velmios [JWT authentication](../../velmios-lib/references/jwt-authentication.md).

@@ -1,58 +1,72 @@
 # Kratos Service
 
-The Kratos service provides identity management operations with Ory Kratos.
+Identity management and session validation against Ory Kratos.
 
-## When to Use
+## When to use
 
-Use the Kratos service when:
-- Managing user identities and profiles
-- Validating user sessions from cookies
-- Retrieving user information from identity IDs
-- Updating user identity attributes
-- Implementing user authentication flows
-- Building user management APIs
-- Integrating with Ory Kratos identity provider
-- Validating session cookies for protected endpoints
+- Validating user sessions from cookies (`KratosGenericWhoamiService`).
+- Reading, patching, or deleting identities and credentials.
+- Managing identity sessions: listing, deleting a single session, deleting all sessions for an identity.
+- Generating recovery codes and links for self-service flows.
+
+## KratosGenericWhoamiService
+
+```python
+class KratosGenericWhoamiService(Generic[GenericKratosSessionObject]):
+    COOKIE_NAME: str = "ory_kratos_session"
+
+    def __init__(self, kratos_public_http_resource: AioHttpClientResource) -> None: ...
+
+    async def whoami(self, cookie_value: str) -> GenericKratosSessionObject: ...
+```
+
+The concrete session class is read from `__orig_bases__`, so subclass with your typed session object (Velmios `VelmiosKratosSessionObject`).
+
+```python
+class CustomWhoami(KratosGenericWhoamiService[CustomSessionObject]):
+    """Service for the public Kratos API."""
+
+
+service = CustomWhoami(kratos_public_http_resource=public_client)
+session = await service.whoami(cookie_value="<ory_kratos_session cookie>")
+```
+
+Errors:
+
+- HTTP 401 → `KratosSessionInvalidError`
+- HTTP 5xx / other → `KratosOperationError`
+- Pydantic validation failure → `KratosOperationError`
 
 ## KratosIdentityGenericService
 
-Generic service for identity management with type-safe identity and session objects.
-
-### Implementation
+Type-safe admin client for `/admin/identities` and `/admin/sessions`.
 
 ```python
-from fastapi_factory_utilities.core.services.kratos import (
-    KratosIdentityGenericService,
-    KratosIdentityObject,
-    KratosSessionObject,
-    KratosIdentityId,
-)
-from fastapi_factory_utilities.core.plugins.aiohttp import AioHttpClientResource
+class KratosIdentityGenericService(Generic[GenericKratosIdentityObject, GenericKratosSessionObject]):
+    IDENTITY_ENDPOINT: str = "/admin/identities"
+    ADMIN_ENDPOINT: str = "/admin"
 
-class CustomIdentityObject(KratosIdentityObject):
-    # Custom identity fields
-    pass
-
-class CustomSessionObject(KratosSessionObject):
-    # Custom session fields
-    pass
-
-class CustomKratosService(KratosIdentityGenericService[CustomIdentityObject, CustomSessionObject]):
-    pass
-
-# Usage
-service = CustomKratosService(kratos_admin_http_resource=admin_client)
+    def __init__(self, kratos_admin_http_resource: AioHttpClientResource) -> None: ...
 ```
 
-### Get Identity
+The class infers both the identity and session DTO classes from `__orig_bases__`. Velmios subclasses are `VelmiosKratosIdentityService[VelmiosKratosIdentityObject, VelmiosKratosSessionObject]`.
 
-```python
-identity = await service.get_identity(
-    identity_id=KratosIdentityId(uuid.UUID("...")),
-)
-```
+### Available operations
 
-### Update Identity
+| Method | Endpoint | Purpose |
+|---|---|---|
+| `get_identity(identity_id)` | `GET /admin/identities/{id}` | Fetch a single identity. |
+| `update_identity(identity_id, patches)` | `PATCH /admin/identities/{id}` | JSON Patch the identity (use `KratosIdentityPatchObject`). |
+| `delete_identity(identity_id)` | `DELETE /admin/identities/{id}` | Delete an identity. |
+| `delete_identity_credentials(identity_id, credentials_type, identifier=None)` | `DELETE /admin/identities/{id}/credentials` | Delete password / TOTP / WebAuthn credentials; `identifier` is required for `OIDC` and `SAML`. |
+| `delete_identity_sessions(identity_id)` | `DELETE /admin/identities/{id}/sessions` | Invalidate every active session of the identity. |
+| `delete_session(session_id)` | `DELETE /admin/sessions/{session_id}` | Invalidate a single session (added in FFU v5.1.0). Use this when you need surgical session revocation (e.g. logout from a specific device). |
+| `list_sessions(identity_id, active=True, page_size=250, page_token=None)` | `GET /admin/identities/{id}/sessions` | Paginated session listing; returns `(sessions, next_page_token)`. |
+| `create_recovery_code(identity_id, flow_type, expires_in)` | `POST /admin/recovery/code` | Generate a recovery code. |
+| `create_recovery_link(identity_id, expires_in)` | `POST /admin/recovery/link` | Generate a recovery link. |
+| `create_identity(identity)` | n/a | Currently `NotImplementedError` — override per service. |
+
+### Patch identity example
 
 ```python
 from fastapi_factory_utilities.core.services.kratos import (
@@ -61,139 +75,47 @@ from fastapi_factory_utilities.core.services.kratos import (
 )
 
 patches = [
-    KratosIdentityPatchObject(
-        op=KratosIdentityPatchOpEnum.REPLACE,
-        path="/traits/email",
-        value="newemail@example.com",
-    ),
+    KratosIdentityPatchObject(op=KratosIdentityPatchOpEnum.REPLACE, path="/traits/email", value="new@example.com"),
 ]
 
-updated_identity = await service.update_identity(
-    identity_id=identity_id,
-    patches=patches,
-)
+updated = await service.update_identity(identity_id=identity_id, patches=patches)
 ```
 
-### Delete Credentials
+## DTOs
 
 ```python
-from fastapi_factory_utilities.core.services.kratos.enums import AuthenticationMethodEnum
-
-await service.delete_identity_credentials(
-    identity_id=identity_id,
-    credentials_type=AuthenticationMethodEnum.PASSWORD,
-    identifier="user@example.com",  # Optional
-)
-```
-
-## KratosGenericWhoamiService
-
-Service for session validation and user information retrieval.
-
-### Implementation
-
-```python
-from fastapi_factory_utilities.core.services.kratos import (
-    KratosGenericWhoamiService,
-    KratosSessionObject,
-)
-
-class CustomWhoamiService(KratosGenericWhoamiService[CustomSessionObject]):
-    pass
-
-service = CustomWhoamiService(kratos_public_http_resource=public_client)
-```
-
-### Session Validation
-
-```python
-# Validate session from cookie
-session = await service.whoami(cookie_value="ory_kratos_session_cookie_value")
-
-# Access session information
-user_id = session.identity.id
-traits = session.identity.traits
-```
-
-### Usage in FastAPI
-
-```python
-from fastapi import Request, Depends, HTTPException
-from fastapi_factory_utilities.core.services.kratos import (
-    KratosGenericWhoamiService,
-    KratosSessionInvalidError,
-)
-
-@router.get("/me")
-async def get_current_user(
-    request: Request,
-    service: KratosGenericWhoamiService = Depends(get_whoami_service),
-):
-    cookie = request.cookies.get("ory_kratos_session")
-    if not cookie:
-        raise HTTPException(status_code=401, detail="No session cookie")
-
-    try:
-        session = await service.whoami(cookie)
-        return {"user_id": session.identity.id}
-    except KratosSessionInvalidError:
-        raise HTTPException(status_code=401, detail="Invalid session")
-```
-
-## KratosIdentityObject
-
-Base class for Kratos identity objects.
-
-### Structure
-
-```python
-class KratosIdentityObject(BaseModel, Generic[...]):
+class KratosIdentityObject(BaseModel, Generic[Traits, MetadataPublic, MetadataAdmin]):
     id: KratosIdentityId
     state: KratosIdentityStateEnum
     state_changed_at: datetime.datetime
-    traits: GenericTraitsObject
+    traits: Traits
+    metadata_public: MetadataPublic | None = None
+    metadata_admin: MetadataAdmin | None = None
     created_at: datetime.datetime
     updated_at: datetime.datetime
     schema_id: KratosSchemaId
     schema_url: str
-    # ... other fields
-```
+    ...
 
-## KratosSessionObject
 
-Base class for Kratos session objects.
-
-### Structure
-
-```python
-class KratosSessionObject(BaseModel):
+class KratosSessionObject(BaseModel, Generic[Identity]):
     id: UUID
     active: bool
     authenticated_at: datetime.datetime
     expires_at: datetime.datetime
-    identity: KratosIdentityObject
-    # ... other fields
+    identity: Identity
+    ...
 ```
 
-## Identity States
+Since v3.x the identity / session DTOs mix in `SearchableEntity` and `ApiResponseModelAbstract`, so admin-side projections can be exposed in dynamic response models via `ApiField`. Use generic parameters to plug in service-specific traits and metadata.
 
-### KratosIdentityStateEnum
+### Enums
 
-- `ACTIVE` - Identity is active
-- `INACTIVE` - Identity is inactive
+- `KratosIdentityStateEnum`: `ACTIVE`, `INACTIVE`.
+- `KratosIdentityPatchOpEnum`: standard JSON Patch operations (`ADD`, `REPLACE`, `REMOVE`, ...).
+- `AuthenticationMethodEnum`: `PASSWORD`, `OIDC`, `TOTP`, `WEBAUTHN`, `SAML`, `LOOKUP_SECRET`, `CODE`.
 
-## Authentication Methods
-
-### AuthenticationMethodEnum
-
-- `PASSWORD` - Password authentication
-- `OIDC` - OpenID Connect
-- `TOTP` - Time-based one-time password
-- `WEBAUTHN` - WebAuthn
-
-## Error Handling
-
-The service raises specific exceptions:
+## Errors
 
 ```python
 from fastapi_factory_utilities.core.services.kratos.exceptions import (
@@ -201,32 +123,39 @@ from fastapi_factory_utilities.core.services.kratos.exceptions import (
     KratosIdentityNotFoundError,
     KratosSessionInvalidError,
 )
-
-try:
-    identity = await service.get_identity(identity_id)
-except KratosIdentityNotFoundError:
-    # Identity not found
-    raise HTTPException(status_code=404, detail="Identity not found")
-except KratosOperationError as e:
-    # Other Kratos error
-    logger.error("Kratos operation failed", error=e, status_code=e.status_code)
 ```
 
-## Best Practices
+`KratosOperationError` carries the upstream HTTP `status_code` and structured kwargs (e.g. `identity_id`, `patches`) so handlers can rebuild error context.
 
-1. **Session Validation**: Always validate sessions before trusting user identity
-2. **Error Handling**: Handle `KratosSessionInvalidError` for authentication failures
-3. **Identity Updates**: Use patch operations for partial updates
-4. **State Management**: Check identity state before operations
-5. **Schema Validation**: Ensure identity traits match schema
+## FastAPI integration
 
-## See Also
+```python
+@router.get("/me")
+async def me(
+    request: Request,
+    whoami: VelmiosKratosWhoamiService = Depends(depends_velmios_kratos_whoami_service),
+):
+    cookie = request.cookies.get("ory_kratos_session")
+    if not cookie:
+        raise HTTPException(status_code=401, detail="No session cookie")
+    try:
+        session = await whoami.whoami(cookie)
+    except KratosSessionInvalidError as exc:
+        raise HTTPException(status_code=401, detail="Invalid session") from exc
+    return {"identity_id": str(session.identity.id)}
+```
 
-- [JWT Authentication](jwt-authentication.md) - Alternative API auth via JWT Bearer; both extend `AuthenticationAbstract`. For cookie-based session auth, use `KratosSessionAuthenticationService` from `core/security/kratos.py` with a Kratos whoami service.
+## Best practices
+
+1. Always parameterize `KratosIdentityGenericService` and `KratosGenericWhoamiService` with concrete DTOs that document your service's traits / metadata schema.
+2. Use `delete_session(session_id)` for granular logout flows; reserve `delete_identity_sessions` for full invalidation.
+3. Surface `KratosSessionInvalidError` as HTTP 401; let the Velmios security handler add telemetry around it (see Velmios [Exception handling](../../velmios-lib/references/exception-handling.md)).
+4. Pair `update_identity` with optimistic concurrency in your service if you serve concurrent admin clients.
 
 ## Reference
 
-- `src/fastapi_factory_utilities/core/services/kratos/` - Kratos service implementation
-- `src/fastapi_factory_utilities/core/services/kratos/services.py` - Service classes
-- `src/fastapi_factory_utilities/core/services/kratos/objects.py` - Identity and session objects
-- `src/fastapi_factory_utilities/core/services/kratos/enums.py` - Enums
+- `src/fastapi_factory_utilities/core/services/kratos/services.py`
+- `src/fastapi_factory_utilities/core/services/kratos/objects.py`
+- `src/fastapi_factory_utilities/core/services/kratos/enums.py`
+- `src/fastapi_factory_utilities/core/services/kratos/exceptions.py`
+- See also: [JWT Authentication](jwt-authentication.md), Velmios [Kratos authentication](../../velmios-lib/references/kratos-authentication.md).
