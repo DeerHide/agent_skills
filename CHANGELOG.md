@@ -9,6 +9,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+### Changed
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+### Security
+
+---
+
+## [2.0.0] - 2026-05-20
+
+### Added
+
 - **fastapi-factory-utilities** skill: [API response and PUT update model](skills/fastapi-factory-utilities/references/api-response-and-update.md) reference covering `ApiField`, `ApiResponseModelAbstract`, `ApiEntityAbstract`, `UpdateableField`, `build_response_model`, `build_update_request_model`, `get_updateable_fields`, and `reconcile_update_request` (`FieldChange` / `ReconcileResult`).
 - **fastapi-factory-utilities** skill: [CSRF and validation handlers](skills/fastapi-factory-utilities/references/csrf-and-validation.md) reference covering `register_exception_handlers`, `register_csrf_protect_exception_handler`, `DependsCsrfProtect`, and how Velmios layers `register_security_exception_handlers` on top.
 - **velmios-lib** skill: [Use cases](skills/velmios-lib/references/use-cases.md) reference covering `UseCaseAbstract`, `AuthenticatedUseCaseAbstract`, `allow_cross_realm_when_velmios_admin_or_system`, `CreateUseCaseAbstract`, `UpdateUseCaseAbstract`, `DeleteUseCaseAbstract`, `SearchUseCaseAbstract`, lifecycle hooks (`pre_create_hook`, `post_create_hook`, `can_be_created`, `pre_update_hook`, ...), `BasicCreateUsecaseAbstract` / `BasicUpdateUsecaseAbstract`, and segmentation errors.
@@ -237,7 +253,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-[Unreleased]: https://github.com/DeerHide/agent_skills/compare/v1.8.1...HEAD
+[Unreleased]: https://github.com/DeerHide/agent_skills/compare/v2.0.0...HEAD
+[2.0.0]: https://github.com/DeerHide/agent_skills/compare/v1.8.1...v2.0.0
 [1.8.1]: https://github.com/DeerHide/agent_skills/compare/v1.8.0...v1.8.1
 [1.8.0]: https://github.com/DeerHide/agent_skills/compare/v1.7.0...v1.8.0
 [1.7.0]: https://github.com/DeerHide/agent_skills/compare/v1.6.1...v1.7.0
