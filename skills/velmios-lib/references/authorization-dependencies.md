@@ -4,30 +4,32 @@
 
 - Restricting a FastAPI route to specific **personas** (`AuthenticationPersona`).
 - Restricting which **authentication mechanisms** may be used (`AuthenticationType`).
+- Choosing between the JWT-only resolver and the Kratos session-aware resolver per route.
 - Understanding **public** and **none** personas when the resolver is configured to allow them.
 
 ## Overview
 
-Velmios exposes a single first-class dependency class, **`DependsAuthenticationContext`**, which:
+Velmios exposes two first-class dependency classes that both:
 
-1. Injects **`AuthenticationResolver`** (via `depends_authentication_resolver`).
-2. Optionally applies **`supported_authentication_types`** and **`authorized_personas`** on the resolver.
-3. Calls **`authenticate(request)`** and verifies the resulting persona is allowed.
+1. Inject an `AuthenticationResolver`.
+2. Optionally apply `supported_authentication_types` and `authorized_personas` on the resolver.
+3. Call `authenticate(request)` and verify the resulting persona is allowed.
 
 ```python
 from velmios.core.security import (
     AuthenticationContext,
     AuthenticationType,
     DependsAuthenticationContext,
+    DependsAuthenticationContextWithKratosSessionSupport,
 )
 from velmios.core.types import AuthenticationPersona
 ```
 
-There is **no** `depends_authentication_context`, `DependsAuthorizedPersona`, or `DependsSystemHasScope` in current public APIs. Older docs referred to those names; migrate to `DependsAuthenticationContext`.
+There is **no** legacy `depends_authentication_context`, `DependsAuthorizedPersona`, or `DependsSystemHasScope`. Migrate to the classes below.
 
 ## DependsAuthenticationContext
 
-### Constructor
+Uses `depends_authentication_resolver` (internal + customer JWT).
 
 ```python
 DependsAuthenticationContext(
@@ -36,13 +38,12 @@ DependsAuthenticationContext(
 )
 ```
 
-- **`authorized_personas`**: MUST NOT be empty (raises `ValueError` at construction).
-- **`supported_authentication_types`**: When not `None`, MUST NOT be empty. When `None`, the resolver tries every mechanism registered on the resolver (typically internal JWT, customer JWT, and optionally Kratos).
-
-### Usage
+- `authorized_personas` MUST NOT be empty (raises `ValueError` at construction).
+- `supported_authentication_types` MUST NOT be empty when supplied. When `None`, the resolver tries every mechanism registered on it (typically internal JWT + customer JWT).
 
 ```python
 from fastapi import Depends
+
 
 @app.get("/admin")
 async def admin_only(
@@ -64,16 +65,29 @@ async def for_admins_and_customers(
     return {"realm_id": str(auth.realm_id)}
 ```
 
-### OAuth2 scopes
+## DependsAuthenticationContextWithKratosSessionSupport
 
-Scopes are available on **`auth.scopes`** as `list[OAuth2Scope]` (`fastapi_factory_utilities.core.security.types`). Velmios does **not** ship a dedicated `Depends*` for “must have scope X”. Options:
+Subclass that injects `depends_authentication_resolver_with_kratos_session` instead, so routes accept JWT **or** a Kratos session cookie. Same constructor signature as `DependsAuthenticationContext`.
 
-- Check membership in the route body after `DependsAuthenticationContext`.
-- Implement a small wrapper dependency or use **`AbstractDependsPermissionsRequired`** with permissions derived from roles/scopes.
+```python
+@app.get("/portal/me")
+async def portal_me(
+    auth: AuthenticationContext = Depends(
+        DependsAuthenticationContextWithKratosSessionSupport(
+            authorized_personas=[AuthenticationPersona.ADMIN, AuthenticationPersona.CUSTOMER],
+            supported_authentication_types=[
+                AuthenticationType.HYDRA_CUSTOMER_JWT,
+                AuthenticationType.KRATOS_SESSION,
+            ],
+        )
+    ),
+) -> dict:
+    return {"identity_id": str(auth.identity_id) if auth.identity_id else None}
+```
 
-### Machine-to-machine pattern
+## Machine-to-machine pattern
 
-Use **SYSTEM** persona with **internal JWT** only, then validate scopes (see [assets/quick_start_example.py](../assets/quick_start_example.py)):
+Lock down internal endpoints to the `SYSTEM` persona using only the internal JWT mechanism and combine with explicit scope or permission checks (see [Permissions](permissions.md)):
 
 ```python
 DependsAuthenticationContext(
@@ -82,25 +96,42 @@ DependsAuthenticationContext(
 )
 ```
 
-### Public and none personas
+## OAuth2 scopes
 
-When **`AuthenticationPersona.PUBLIC`** is authorized and **`AuthenticationType.NONE`** is supported (and the resolver is configured accordingly), unauthenticated users may receive a synthetic **`PublicUserEntity`** using `realm_id` from the query string. Similarly, **`AuthenticationPersona.NONE`** can represent an explicitly anonymous context. See **`AuthenticationResolver.authenticate`** and **`authorize_public` / `authorize_none`** in `resolvers.py` for exact conditions.
+Scopes are available on `auth.scopes` as `list[OAuth2Scope]` from `fastapi_factory_utilities.core.security.types`. Velmios does **not** ship a built-in dependency for "must have scope X". Options:
 
-### Error handling
+- Check membership in the route body after the dependency runs.
+- Implement a small wrapper dependency.
+- Use `AbstractDependsPermissionsRequired` with `required_requirement` so scopes are folded into the resolved permission set.
 
-| Condition | Typical outcome |
-|---|---|
-| No authentication succeeded | `VelmiosNotAuthenticatedError` from the resolver (map to HTTP 401 in exception handlers if needed) |
-| Authenticated persona not in `authorized_personas` | `HTTPException` **401** from `DependsAuthenticationContext` |
+## Public and none personas
+
+When `AuthenticationPersona.PUBLIC` is authorized and `AuthenticationType.NONE` is supported (and a `NONE` authentication is registered), unauthenticated users can receive a synthetic guest `PublicUserEntity` with `realm_id` taken from the `realm_id` query parameter. `AuthenticationPersona.NONE` represents an explicitly anonymous context (`realm_id` MUST be `None`). See `AuthenticationResolver.authorize_public` and `authorize_none` in `resolvers.py` for exact conditions.
+
+## Error envelopes
+
+`register_security_exception_handlers` standardizes the JSON envelopes:
+
+| Condition | HTTP | Source |
+|---|---|---|
+| Unauthorized persona or no successful authentication | **401** | `VelmiosNotAuthenticatedError`, `VelmiosSecurityError` |
+| Permission requirement failed (`PermissionsRequiredError` or raw `HTTPException(403)`) | **403** | Permissions layer, resource API CUD endpoints |
+| Resource not found (`USE_CASE_NOT_FOUND_ERROR`) | **404** | Use-case abstracts |
+| Validation error on a CUD payload or query parameter | **422** | `_parse_request_model_or_422` / `_pagination_from_request_or_422` |
+| Use-case internal error (`USE_CASE_ERROR`) | **500** | Use-case abstracts |
+
+Telemetry: every `401` and `403` increments the OTel `velmios.security.auth_failures` counter, emits a `security_auth_failure` log entry, and decorates the active span with `security.event=auth_failure` (see [Exception handling](exception-handling.md)).
 
 ## Best practices
 
-1. Prefer **`DependsAuthenticationContext`** over reimplementing resolver wiring in each route.
-2. Pass **`supported_authentication_types`** when a route must not accept a mechanism (e.g. human session only vs internal JWT only).
-3. Combine persona checks with **`AbstractDependsPermissionsRequired`** for fine-grained authorization.
-4. Never pass an empty `authorized_personas` or empty `supported_authentication_types` when the latter is not `None`.
+1. Prefer `DependsAuthenticationContext` (or the Kratos variant) over reimplementing resolver wiring in each route.
+2. Pass `supported_authentication_types` whenever a route must not accept a mechanism (e.g. browser-session only).
+3. Never construct the dependency with an empty `authorized_personas` (it raises) or an empty `supported_authentication_types` list (it raises).
+4. Pair persona checks with `AbstractDependsPermissionsRequired` for fine-grained authorization.
+5. Always call `register_security_exception_handlers(app, ...)` so the envelopes and telemetry above are produced consistently.
 
 ## Reference
 
 - `src/velmios/core/security/depends.py`
 - `src/velmios/core/security/resolvers.py`
+- `src/velmios/core/security/handlers.py`

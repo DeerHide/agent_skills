@@ -1,187 +1,166 @@
 # Entities
 
-## When to Use
+## When to use
 
-- When you need to represent an **authenticated user** or **system process** in domain logic.
-- When constructing or consuming an `AuthenticationContext`.
-- When implementing business rules that depend on user persona and realm.
+- Representing an **authenticated user** (admin, customer, public) or **system process** on `AuthenticationContext`.
+- Reading lite entity fields (`id`, `realm_id`, `email`, `identity_id`, `role`, `persona`) from JWT or Kratos hooks.
+- Modeling **realm-scoped feature flags** for storage and HTTP exposure.
 
 ## Overview
 
-Entities are Pydantic `BaseModel` subclasses representing the four persona types in the Velmios platform. They enforce realm boundary rules via field validators.
+Velmios entities are Pydantic models that mix in `ApiEntityAbstract` from `fastapi-factory-utilities` so they double as response and query-filter models. They enforce realm boundary rules via field/model validators.
 
 ```python
 from velmios.core.entities import (
-    AdminEntity,
     AdminLiteEntity,
-    CustomerEntity,
     CustomerLiteEntity,
+    PublicUserEntity,
+    SystemEntity,
     FeatureForRealmEntity,
     FeaturesForRealmEntity,
     FeaturesForRealmQueryFilter,
-    PublicUserEntity,
-    SystemEntity,
 )
 ```
 
-## Lite entities (`AdminLiteEntity`, `CustomerLiteEntity`)
+IMPORTANT: Since `velmios_lib` 12.0.0 the non-lite `AdminEntity`, `CustomerEntity`, and `AuthenticatedUserEntityAbstract` are no longer exported. Use the lite variants below; if your service needs richer profile data, store it in its own persisted entity and combine it with the lite entity from the authentication context.
 
-Subset types used in **`AuthenticationContext`** for **Kratos session** and **customer JWT** flows. They carry identifiers, realm, role, persona, and identity fields needed for authorization without the full profile surface of **`AdminEntity`** / **`CustomerEntity`**.
+## AuthenticatedUserLiteEntityAbstract
 
-- Import from **`velmios.core.entities`** alongside full entities.
-- Same **realm boundary** rules as their full counterparts (validators on lite types enforce Velmios vs tenant realm).
-
-## Feature aggregates
-
-Realm-scoped feature toggles and metadata:
-
-- **`FeatureForRealmEntity`** — one feature row (searchable fields for query models).
-- **`FeaturesForRealmEntity`** — persisted aggregate (`PersistedEntity[FeatureForRealmEntityId]`) with `realm_id`, `features`, `configuration_checksum`.
-- **`FeaturesForRealmQueryFilter`** — dynamic query filter from **`FeaturesForRealmEntity.build_query_filter_model()`**.
-
-See [Features and resource APIs](features-and-resource-apis.md).
-
-## Entity Reference
-
-### AdminEntity
-
-Represents a Velmios platform administrator. Extends `AuthenticatedUserEntityAbstract`.
+Abstract base for authenticated human users (admins and customers) built on `ApiEntityAbstract`.
 
 ```python
-from velmios.core.entities import AdminEntity
-from velmios.core.types import AdminId, AdminRole, RealmId, Email, Username, PhoneNumber, Name, Country
-from velmios.core.constants import VELMIOS_REALM_ID
+class AuthenticatedUserLiteEntityAbstract(ApiEntityAbstract, ABC, Generic[GenericId]):
+    model_config = ConfigDict(extra="ignore", arbitrary_types_allowed=True)
 
-admin = AdminEntity(
-    id=AdminId(uuid.uuid4()),
-    realm_id=VELMIOS_REALM_ID,  # MUST be Velmios realm
-    role=AdminRole.OPERATOR,
-    username=Username("admin_user"),
-    email=Email("admin@velmios.com"),
-    phone=PhoneNumber("+14155550100"),
-    country=Country("US"),
-    first_name=Name("Jane"),
-    last_name=Name("Doe"),
-    birthday=date(1990, 1, 1),
-    terms_of_service=True,
-)
+    id: Annotated[GenericId, ApiField(searchable=True)]
+    realm_id: Annotated[RealmId, ApiField(searchable=True)]
+    email: Annotated[Email, ApiField(updateable=True, searchable=True)]
 ```
 
-**Fields:** `id: AdminId`, `role: AdminRole`, plus all `AuthenticatedUserEntityAbstract` fields.
+`extra="ignore"` lets the JWT/Kratos hooks pass through extra payload fields without raising. `email` is `UpdateableField` so the future profile-update path can target it via `reconcile_update_request` (see the [FFU PUT update reference](../../fastapi-factory-utilities/references/api-response-and-update.md)).
 
-**Realm rule:** `realm_id` MUST equal `VELMIOS_REALM_ID`. Raises `ValueError` otherwise.
-
-### CustomerEntity
-
-Represents a tenant customer. Extends `AuthenticatedUserEntityAbstract`.
+## AdminLiteEntity
 
 ```python
-from velmios.core.entities import CustomerEntity
-from velmios.core.types import CustomerId, CustomerRole, RealmId
+class AdminLiteEntity(AuthenticatedUserLiteEntityAbstract[AdminId]):
+    role: Annotated[AdminRole, ApiField(searchable=True)]
+    persona: Annotated[Literal[AuthenticationPersona.ADMIN], ApiField(searchable=True)]
+    identity_id: Annotated[KratosIdentityId, ApiField(searchable=True)]
 
-customer = CustomerEntity(
-    id=CustomerId(uuid.uuid4()),
-    realm_id=RealmId(uuid.uuid4()),  # MUST NOT be Velmios realm
-    role=CustomerRole.OWNER,
-    # ... all AuthenticatedUserEntityAbstract fields
-)
+    @computed_field
+    @property
+    def username(self) -> Username:
+        return Username(self.email.split("@")[0])
 ```
 
-**Fields:** `id: CustomerId`, `role: CustomerRole`, plus all `AuthenticatedUserEntityAbstract` fields.
+**Realm rule:** `realm_id` MUST equal `VELMIOS_REALM_ID`. Raises `ValueError("Realm ID mismatch")` otherwise.
 
-**Realm rule:** `realm_id` MUST NOT equal `VELMIOS_REALM_ID`. Raises `ValueError` otherwise.
+The admin `username` is derived from the email local part (no separate stored field).
 
-### PublicUserEntity
+## CustomerLiteEntity
+
+```python
+class CustomerLiteEntity(AuthenticatedUserLiteEntityAbstract[CustomerId]):
+    role: Annotated[CustomerRole, ApiField(searchable=True)]
+    persona: Annotated[Literal[AuthenticationPersona.CUSTOMER], ApiField(searchable=True)]
+    identity_id: Annotated[KratosIdentityId, ApiField(searchable=True)]
+```
+
+**Realm rule:** `realm_id` MUST NOT equal `VELMIOS_REALM_ID`. Raises `ValueError("Realm ID cannot be the Velmios realm ID")` otherwise.
+
+## PublicUserEntity
 
 Represents a public-facing end user. Supports both authenticated and guest states.
 
 ```python
-from velmios.core.entities import PublicUserEntity
-from velmios.core.types import RealmId, PublicUserRole
-
-# Guest user (unauthenticated)
-guest = PublicUserEntity(
-    realm_id=RealmId(uuid.uuid4()),
-    role=PublicUserRole.GUEST,
-)
-
-# Authenticated user (all fields required)
-user = PublicUserEntity(
-    id=PublicUserId(uuid.uuid4()),
-    realm_id=RealmId(uuid.uuid4()),
-    role=PublicUserRole.USER,
-    username=Username("public_user"),
-    email=Email("user@example.com"),
-    phone=PhoneNumber("+14155550200"),
-    country=Country("CA"),
-    first_name=Name("John"),
-    last_name=Name("Smith"),
-    birthday=date(1995, 6, 15),
-    terms_of_service=True,
-)
+class PublicUserEntity(ApiEntityAbstract):
+    id: PublicUserId | None = None
+    persona: Literal[AuthenticationPersona.PUBLIC]
+    realm_id: RealmId
+    identity_id: KratosIdentityId | None = None
+    username: Username | None = None
+    email: Email | None = None
+    phone: PhoneNumber | None = None
+    country: Country | None = None
+    first_name: Name | None = None
+    last_name: Name | None = None
+    birthday: date | None = None
+    terms_of_service: bool | None = None
+    role: PublicUserRole = PublicUserRole.GUEST
 ```
 
-**Fields:** All fields are optional except `realm_id` and `role`.
+Behavioural rules (`model_validator`):
 
-**Rules:**
-- When `id` is `None`, role is automatically set to `GUEST`.
-- When `id` is set, ALL fields (`username`, `email`, `phone`, `country`, `first_name`, `last_name`, `birthday`, `terms_of_service`) MUST be provided. Raises `ValueError` otherwise.
+- When `id is None`, `role` is forced to `PublicUserRole.GUEST`.
+- When `id` is set, all of `username`, `email`, `phone`, `country`, `first_name`, `last_name`, `birthday`, and `terms_of_service` MUST be provided. Raises `ValueError("All fields are required for a public user authenticated.")` otherwise.
+- `realm_id` MUST NOT equal `VELMIOS_REALM_ID`.
 
-### SystemEntity
+The guest variant is what `AuthenticationResolver.authorize_public` constructs from the `realm_id` query parameter when public access is enabled.
+
+## SystemEntity
 
 Represents a system process for machine-to-machine communication.
 
 ```python
-from velmios.core.entities import SystemEntity
-from velmios.core.types import SystemId, SystemRole, RealmId
-from velmios.core.constants import VELMIOS_REALM_ID
-
-# Velmios system process
-system = SystemEntity(
-    id=SystemId(uuid.uuid4()),
-    realm_id=VELMIOS_REALM_ID,
-    role=SystemRole.SYSTEM,
-)
-
-# Tenant system process
-tenant_system = SystemEntity(
-    id=SystemId(uuid.uuid4()),
-    realm_id=RealmId(uuid.uuid4()),  # Non-Velmios realm
-    role=SystemRole.CUSTOMER,
-)
+class SystemEntity(ApiEntityAbstract):
+    id: SystemId
+    persona: Literal[AuthenticationPersona.SYSTEM]
+    realm_id: RealmId
+    role: SystemRole
 ```
 
-**Fields:** `id: SystemId`, `realm_id: RealmId`, `role: SystemRole`.
+Realm/role rules (`model_validator`):
 
-**Realm rules:**
-- `SystemRole.SYSTEM` MUST have `realm_id == VELMIOS_REALM_ID`.
-- `SystemRole.CUSTOMER` MUST have `realm_id != VELMIOS_REALM_ID`.
+- `SystemRole.SYSTEM` MUST be paired with `realm_id == VELMIOS_REALM_ID`.
+- `SystemRole.CUSTOMER` MUST be paired with `realm_id != VELMIOS_REALM_ID`.
 
-**Helper method:** `is_velmios_system() -> bool` returns `True` if the entity is a Velmios platform system process.
+Helper: `is_velmios_system() -> bool` returns `True` when the entity is the Velmios platform system process. `AuthenticationContext.is_velmios_admin_or_system()` uses this signal alongside the admin / Velmios realm check.
 
-## AuthenticatedUserEntityAbstract
+## Feature aggregates
 
-Abstract base class for entities that represent authenticated human users (`AdminEntity`, `CustomerEntity`).
+Realm-scoped feature toggles. Both classes inherit `ApiEntityAbstract` / `SearchableEntity` and use `UpdateableField` so the PUT reconciliation pipeline targets only intended fields.
 
-**Fields:**
+```python
+class FeatureForRealmEntity(ApiEntityAbstract, SearchableEntity):
+    feature: Annotated[Feature, ApiField(searchable=True), UpdateableField]
+    enabled: Annotated[bool, ApiField(searchable=True), UpdateableField]
+    updated_at: Annotated[datetime, ApiField(searchable=True)]
 
-| Field | Type | Description |
-|---|---|---|
-| `realm_id` | `RealmId` | Tenant realm identifier |
-| `username` | `Username` | Validated username (3-32 chars) |
-| `email` | `Email` | Validated email address |
-| `phone` | `PhoneNumber` | E.164 phone number |
-| `country` | `Country` | ISO 3166-1 country code |
-| `first_name` | `Name` | Validated first name |
-| `last_name` | `Name` | Validated last name |
-| `birthday` | `date` | Date of birth |
-| `terms_of_service` | `bool` | Terms of service acceptance |
+
+class FeaturesForRealmEntity(PersistedEntity[FeatureForRealmEntityId], SearchableEntity):
+    realm_id: Annotated[RealmId, ApiField(searchable=True)]
+    features: Annotated[
+        list[FeatureForRealmEntity],
+        ApiField(searchable=True),
+        UpdateableField,
+    ] = Field(default_factory=list)
+    configuration_checksum: Annotated[str, ApiField(searchable=True)]
+
+
+class FeaturesForRealmQueryFilter(FeaturesForRealmEntity.build_query_filter_model()):
+    """Dynamic query filter built from the entity."""
+```
+
+- `FeatureForRealmEntity.__eq__` / `__hash__` compare on `feature` key alone so set operations dedupe correctly.
+- `configuration_checksum` is recomputed by `FeaturesService` whenever supported features / defaults / overrides change; out-of-date documents are realigned at startup.
+
+See [Features and resource APIs](features-and-resource-apis.md) for HTTP and use-case wiring.
+
+## Realm-isolated persisted abstracts
+
+`velmios.core.abstracts` exposes the realm-isolated bases that every persisted entity in a Velmios service should extend:
+
+- `RealmIsolatedEntity` — adds `realm_id` and a `SearchableField` marker; mix into transient response models.
+- `RealmIsolatedPersistedEntity[Id]` — `PersistedEntity[Id]` + `RealmIsolatedEntity`; preserves the generic id type parameter.
+- `RealmIsolatedPersistedAuditableEntity[Id]` — same as above but auditable (`PersistedAuditableEntity` mixin) so `GenericAuditService` can publish realm-aware audit events. See [Audit and events](audit-and-events.md).
 
 ## Reference
 
+- `src/velmios/core/entities/__init__.py`
 - `src/velmios/core/entities/abstracts.py`
 - `src/velmios/core/entities/admin.py`
 - `src/velmios/core/entities/customer.py`
 - `src/velmios/core/entities/public_user.py`
 - `src/velmios/core/entities/system.py`
 - `src/velmios/core/entities/features.py`
+- `src/velmios/core/abstracts/entities.py`
