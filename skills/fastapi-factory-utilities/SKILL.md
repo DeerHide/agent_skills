@@ -24,7 +24,7 @@ A library for building production-ready FastAPI microservices with a plugin-base
 - Use this skill when implementing repository patterns for data access (`AbstractRepository`, `AbstractRepositoryInMemory`).
 - Use this skill when configuring health checks and status services.
 - Use this skill when implementing JWT Bearer authentication with JWKS verification (`JWTBearerAuthenticationConfig`, `JWTBearerAuthenticationConfigBuilder`, configurable bearer extraction strategies, `ExpiredJWTError`).
-- Use this skill when implementing typed list/search query parameters (`QueryAbstract`, `QueryResolver`, `QueryFieldOperation`) with coercion for `UUID`, `NewType`, `enum.Flag` / `IntFlag` / `Enum` / `StrEnum`, and lists for `in` / `nin`.
+- Use this skill when implementing typed list/search query parameters (`QueryAbstract`, `QueryResolver`, `QueryFieldOperation`) with coercion for `UUID`, `NewType`, `enum.Flag` / `IntFlag` / `Enum` / `StrEnum`, and lists for `in` / `nin`, plus optional sparse fieldset projection via the `fields` query param on search endpoints.
 - Use this skill when defining API response and PUT update contracts (`ApiResponseModelAbstract`, `ApiResponseField`, `ApiField`, `ApiEntityAbstract`, `UpdateableField`, `reconcile_update_request`).
 - Use this skill when registering exception handlers for request validation (HTTP 422) and CSRF (HTTP 403) with `register_exception_handlers` / `register_csrf_protect_exception_handler`.
 - Use this skill when publishing audit events through `AbstractAuditPublisherService` / `AuditEventObject` / `PersistedAuditableEntity` and the `{prefix}.{domain}.{service}.{what}.{why}` routing-key pattern.
@@ -89,7 +89,7 @@ For testing, several plugins provide mockers to create mock resources:
 
 | Reference | Description |
 |-----------|-------------|
-| [Query utilities](references/query-utilities.md) | Typed HTTP filters, sorting, `SearchableEntity`, `QueryFilterNestedAbstract`, `QueryResolver`, ODM translation, type coercion |
+| [Query utilities](references/query-utilities.md) | Typed HTTP filters, sorting, `SearchableEntity`, `QueryFilterNestedAbstract`, `QueryResolver`, ODM translation, type coercion, `fields` sparse fieldset |
 | [API response & PUT update model](references/api-response-and-update.md) | `ApiResponseModelAbstract`, `ApiResponseField`, `ApiField`, `ApiEntityAbstract`, `UpdateableField`, PUT request models, `reconcile_update_request` |
 | [Pagination](references/pagination.md) | Type-safe pagination types |
 | [Ory Utilities](references/ory-utilities.md) | Ory API pagination helpers |

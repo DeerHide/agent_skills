@@ -37,6 +37,7 @@ Compose with `Annotated[T, ApiField(...), ApiField(...)]`; flags are OR-merged.
 | `QueryFieldOperatorEnum`, `QuerySortDirectionEnum` | Operators and sort direction. |
 | `QueryResolver` | Maps raw query parameters into a concrete `QueryAbstract` subclass. |
 | `PaginationPageOffset`, `PaginationSize`, `resolve_offset` | Pagination value objects and helper. |
+| `FIELDS_QUERY_PARAM`, `parse_fields_param`, `project`, `fields_query_param` | Sparse fieldset projection for search/list responses (`?fields=`). |
 | `has_response_flag`, `has_updateable_flag`, `has_searchable_flag` | Inspect `ApiField` metadata tuples. |
 
 ## URL parameter patterns
@@ -46,6 +47,7 @@ Compose with `Annotated[T, ApiField(...), ApiField(...)]`; flags are OR-merged.
 - Nested / dotted keys: `?object1.field1=value1` (nested `BaseModel` fields on `QueryAbstract`, `Field(validation_alias=...)`, or `QueryResolver.add_authorized_field("object1.field1", ...)`).
 - Sort: `?sort=name`, `?sort=-name&sort=+age`.
 - Pagination: `?page=0&page_size=50` (defaults defined by `PaginationPageOffset` / `PaginationSize`).
+- Sparse fieldsets (search/list endpoints only): `?fields=name,tasks[].name`, `?fields=name&fields=tasks[].name`.
 
 ## SearchableEntity pattern
 
@@ -113,6 +115,41 @@ Highlights:
 
 `PaginationPageOffset` and `PaginationSize` are value objects with sane defaults. `resolve_offset(page, page_size)` computes the row offset for repositories. Resource APIs that accept arbitrary query params should parse pagination separately (e.g. `_pagination_from_request_or_422` in Velmios `core.abstracts.api`) and return HTTP 422 on invalid `page` / `page_size`.
 
+## Sparse fieldsets (`fields` param)
+
+Search/list endpoints built on `QueryAbstract` / `QueryResolver` may accept an optional **`fields`** query parameter to reduce response payload size. This is **include-only**: only listed fields are returned, and **`id` is always kept** on each search result item. Single-item GET endpoints do not use this param.
+
+Both URL forms are supported:
+
+- Comma-separated: `?fields=name,tasks[].name`
+- Repeated: `?fields=name&fields=tasks[].name`
+
+The `[]` list notation is optional sugar (`tasks[].name` and `tasks.name` behave the same).
+
+Projection runs **after** the response model strips internal/non-exposed fields, so it is purely subtractive and cannot leak hidden data.
+
+```python
+from fastapi import Depends
+from starlette.responses import JSONResponse
+
+from fastapi_factory_utilities.core.utils.api import fields_query_param, project
+
+# Inside a search/list route (alongside QueryResolver wiring):
+async def list_resources(
+    request: Request,
+    fields: list[str] = Depends(fields_query_param),
+    # ... resolve QueryAbstract via QueryResolver ...
+) -> ResourceListResponse | JSONResponse:
+    items = [ResourceApi(**entity.model_dump()).model_dump(mode="json") for entity in entities]
+    if fields:
+        return JSONResponse({"items": project(items, fields), "size": len(items)})
+    return ResourceListResponse(items=items, size=len(items))
+```
+
+Conflicting paths (e.g. `address` and `address.city` together) raise `ValueError` from `build_path_tree`; map that to HTTP 422/400 in the route or exception handler.
+
+Unknown field paths are silently ignored in v1 (no schema validation against `get_exposed_fields()`).
+
 ## Breaking change in v5.0.0
 
 `ApiEntityAbstract` (and any class that extends only `ApiResponseModelAbstract` + `SearchableEntity`) **no longer inherits `QueryAbstract`**. Entities are no longer accidentally pagination-aware; build the filter model explicitly via `Entity.build_query_filter_model()` and assign it to a named class for typing/OpenAPI.
@@ -126,4 +163,5 @@ Highlights:
 - `src/fastapi_factory_utilities/core/utils/api/query_types.py`
 - `src/fastapi_factory_utilities/core/utils/api/searchable_entity.py`
 - `src/fastapi_factory_utilities/core/utils/api/pagination.py`
+- `src/fastapi_factory_utilities/core/utils/api/projection.py`
 - `src/fastapi_factory_utilities/core/plugins/odm_plugin/queries.py`

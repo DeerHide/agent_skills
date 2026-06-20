@@ -9,17 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-### Changed
-
-### Deprecated
-
-### Removed
-
-### Fixed
-
-### Security
-
----
+- **fastapi-factory-utilities** skill: sparse fieldsets (`fields` query param) for search/list endpoints — `parse_fields_param`, `project`, `fields_query_param`, include-only projection with always-kept `id`, and `tasks[].name` list notation.
 
 ## [2.0.0] - 2026-05-20
 
