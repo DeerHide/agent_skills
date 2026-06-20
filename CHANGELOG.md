@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.1] - 2026-06-20
+
 ### Added
 
 - **fastapi-factory-utilities** skill: sparse fieldsets (`fields` query param) for search/list endpoints — `parse_fields_param`, `project`, `fields_query_param`, include-only projection with always-kept `id`, and `tasks[].name` list notation.
@@ -243,7 +245,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-[Unreleased]: https://github.com/DeerHide/agent_skills/compare/v2.0.0...HEAD
+[Unreleased]: https://github.com/DeerHide/agent_skills/compare/v2.0.1...HEAD
+[2.0.1]: https://github.com/DeerHide/agent_skills/compare/v2.0.0...v2.0.1
 [2.0.0]: https://github.com/DeerHide/agent_skills/compare/v1.8.1...v2.0.0
 [1.8.1]: https://github.com/DeerHide/agent_skills/compare/v1.8.0...v1.8.1
 [1.8.0]: https://github.com/DeerHide/agent_skills/compare/v1.7.0...v1.8.0
