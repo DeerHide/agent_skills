@@ -49,8 +49,9 @@ Installed paths:
 | **[release](skills/release/SKILL.md)** | Release workflow: changelog, git state, atomic commits, SemVer, and annotated tags |
 | **[software-architecture](skills/software-architecture/SKILL.md)** | Clean Architecture, DDD, SOLID principles, and microservices patterns |
 | **[story-driven-development](skills/story-driven-development/SKILL.md)** | Feature implementation from user story through branch, scenarios, contract, TDD, quality gate, commit, and PR |
-| **[velmios-lib](skills/velmios-lib/SKILL.md)** | Velmios Core types, lite entities, composable permissions, use-case abstracts, realm-aware audit events, feature flags, application scaffolding, and centralized security exception handling with telemetry |
 | **[velmios-projects](skills/velmios-projects/SKILL.md)** | Catalog of Velmios-related projects with absolute paths and summaries for cross-project discovery |
+
+> **Note:** The `velmios-lib` skill has moved to the [laelidona/velmios-skills](https://github.com/laelidona/velmios-skills) repository.
 | **[writing-skills](skills/writing-skills/SKILL.md)** | How to write Agent Skills: structure, descriptions, natural language strength (MUST/SHOULD/MAY), and checklists |
 
 ## Skill Structure

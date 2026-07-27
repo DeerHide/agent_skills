@@ -97,7 +97,7 @@ with HTTP status **403 Forbidden**. A structured `warning` log (`CSRF error`) ac
 
 ## Velmios layering
 
-Velmios builds on top of these handlers via `register_security_exception_handlers(app)` (see Velmios [Exception handling](../../velmios-lib/references/exception-handling.md)). Order of registration inside `velmios_configure()`:
+Velmios builds on top of these handlers via `register_security_exception_handlers(app)` (see Velmios Exception handling (`velmios-lib` in laelidona/velmios-skills)). Order of registration inside `velmios_configure()`:
 
 1. FFU `register_exception_handlers(app)` (validation → 422). Inherited from `ApplicationAbstract.__init__()`.
 2. FFU `register_csrf_protect_exception_handler(app)` (CSRF → 403).
@@ -127,4 +127,4 @@ Because FastAPI keeps a per-exception-type registry, each handler routes the spe
 - `src/fastapi_factory_utilities/core/app/handlers.py`
 - `src/fastapi_factory_utilities/core/app/csrf.py`
 - `src/fastapi_factory_utilities/core/app/application.py` (`configure_csrf`)
-- See also: [Application framework](application-framework.md), Velmios [Exception handling](../../velmios-lib/references/exception-handling.md).
+- See also: [Application framework](application-framework.md), Velmios Exception handling (`velmios-lib` in laelidona/velmios-skills).

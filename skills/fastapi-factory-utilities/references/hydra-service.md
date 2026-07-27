@@ -164,4 +164,4 @@ Both services accept `AioHttpClientResource` instances. Configure the plugin wit
 - `src/fastapi_factory_utilities/core/services/hydra/services.py`
 - `src/fastapi_factory_utilities/core/services/hydra/objects.py`
 - `src/fastapi_factory_utilities/core/services/hydra/exceptions.py`
-- See also: [JWT authentication](jwt-authentication.md), [AioHttp HTTP client](aiohttp.md), Velmios [JWT authentication](../../velmios-lib/references/jwt-authentication.md).
+- See also: [JWT authentication](jwt-authentication.md), [AioHttp HTTP client](aiohttp.md), Velmios JWT authentication (`velmios-lib` in laelidona/velmios-skills).

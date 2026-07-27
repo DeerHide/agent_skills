@@ -149,7 +149,7 @@ async def me(
 
 1. Always parameterize `KratosIdentityGenericService` and `KratosGenericWhoamiService` with concrete DTOs that document your service's traits / metadata schema.
 2. Use `delete_session(session_id)` for granular logout flows; reserve `delete_identity_sessions` for full invalidation.
-3. Surface `KratosSessionInvalidError` as HTTP 401; let the Velmios security handler add telemetry around it (see Velmios [Exception handling](../../velmios-lib/references/exception-handling.md)).
+3. Surface `KratosSessionInvalidError` as HTTP 401; let the Velmios security handler add telemetry around it (see Velmios Exception handling (`velmios-lib` in laelidona/velmios-skills)).
 4. Pair `update_identity` with optimistic concurrency in your service if you serve concurrent admin clients.
 
 ## Reference
@@ -158,4 +158,4 @@ async def me(
 - `src/fastapi_factory_utilities/core/services/kratos/objects.py`
 - `src/fastapi_factory_utilities/core/services/kratos/enums.py`
 - `src/fastapi_factory_utilities/core/services/kratos/exceptions.py`
-- See also: [JWT Authentication](jwt-authentication.md), Velmios [Kratos authentication](../../velmios-lib/references/kratos-authentication.md).
+- See also: [JWT Authentication](jwt-authentication.md), Velmios Kratos authentication (`velmios-lib` in laelidona/velmios-skills).

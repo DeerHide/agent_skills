@@ -135,7 +135,7 @@ await service.update(
 )
 ```
 
-`UpdateUseCaseAbstract.build_audit_metadata()` builds `metadata["changed"]` from `FieldChange` records; override to surface request ids, request paths, etc. See the Velmios [Audit and events reference](../../velmios-lib/references/audit-and-events.md) for the realm-aware integration.
+`UpdateUseCaseAbstract.build_audit_metadata()` builds `metadata["changed"]` from `FieldChange` records; override to surface request ids, request paths, etc. See the Velmios Audit and events reference (`velmios-lib` in laelidona/velmios-skills) for the realm-aware integration.
 
 ## Error handling
 
@@ -163,4 +163,4 @@ except AuditServiceError as exc:
 - `src/fastapi_factory_utilities/core/services/audit/objects.py`
 - `src/fastapi_factory_utilities/core/services/audit/services.py`
 - `src/fastapi_factory_utilities/core/services/audit/exceptions.py`
-- See also: [AioPika](aiopika.md), [Repository pattern](repository-pattern.md), Velmios [audit and events](../../velmios-lib/references/audit-and-events.md).
+- See also: [AioPika](aiopika.md), [Repository pattern](repository-pattern.md), Velmios audit and events (`velmios-lib` in laelidona/velmios-skills).

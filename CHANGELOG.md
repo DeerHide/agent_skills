@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+
+- **velmios-lib** skill: migrated to [laelidona/velmios-skills](https://github.com/laelidona/velmios-skills) (`velmios-lib/`). Install and maintain that skill from the Velmios skills repo going forward.
+
+### Changed
+
+- **fastapi-factory-utilities** skill: replace relative links to the removed sibling `velmios-lib` skill with textual pointers to `laelidona/velmios-skills`.
+
 ## [2.0.1] - 2026-06-20
 
 ### Added

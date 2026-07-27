@@ -111,7 +111,7 @@ Behavior:
 
 ## Integration with use cases
 
-The reconciliation engine is wired into the Velmios `UpdateUseCaseAbstract.execute()` flow (see Velmios [Use cases](../../velmios-lib/references/use-cases.md)):
+The reconciliation engine is wired into the Velmios `UpdateUseCaseAbstract.execute()` flow (see Velmios Use cases (`velmios-lib` in laelidona/velmios-skills)):
 
 - The use case calls `type(entity_original).reconcile_update_request(...)` with `strict=False`.
 - It surfaces `update_diff`, `ignored_update_paths`, and `unchanged_update_paths` as properties.
@@ -164,4 +164,4 @@ result = UserEntity.reconcile_update_request(entity_original=user, put_request=p
 - `src/fastapi_factory_utilities/core/utils/api/response_model.py`
 - `src/fastapi_factory_utilities/core/utils/api/markers.py`
 - `src/fastapi_factory_utilities/core/utils/api/searchable_entity.py`
-- See also: [Query utilities](query-utilities.md), [ODM plugin](odm-plugin.md), Velmios [Use cases](../../velmios-lib/references/use-cases.md).
+- See also: [Query utilities](query-utilities.md), [ODM plugin](odm-plugin.md), Velmios Use cases (`velmios-lib` in laelidona/velmios-skills).
