@@ -1,9 +1,9 @@
 ---
 name: fastapi-factory-utilities
-description: Build FastAPI microservices with plugins, typed PUT updates and reconciliation, message brokers, OAuth2/OIDC, OpenTelemetry, CSRF and validation handlers, Uvicorn/Hypercorn/Granian, and structured logging.
+description: Build FastAPI microservices with plugins, typed PUT updates and reconciliation, message brokers, S3/MinIO via aioboto3, OAuth2/OIDC, OpenTelemetry, CSRF and validation handlers, Uvicorn/Hypercorn/Granian, and structured logging.
 metadata:
   author: Deerhide
-  version: 2.1.0
+  version: 2.2.0
 ---
 # FastAPI Factory Utilities
 
@@ -17,6 +17,7 @@ A library for building production-ready FastAPI microservices with a plugin-base
 - Use this skill when configuring MongoDB with Beanie ODM, with `PersistedEntity` mixing in `SearchableEntity` and `ApiResponseModelAbstract`.
 - Use this skill when implementing RabbitMQ message brokers with AioPika (`AbstractManagedListener`, concurrency gates, delay-retry topology).
 - Use this skill when setting up background task processing with Taskiq and Redis (`name_suffix` key prefixes, `prune_unregistered_schedules`).
+- Use this skill when integrating MinIO or S3-compatible object storage via the async `S3Plugin` (`aioboto3`, named buckets, `S3BucketDepends`).
 - Use this skill when configuring OpenTelemetry for distributed tracing and metrics.
 - Use this skill when implementing structured logging with `structlog` (OTel `trace_id`/`span_id`, probe access-log filter).
 - Use this skill when using dependency injection patterns with FastAPI's `Depends` system (typed resource depends, in-memory mockers).
@@ -40,7 +41,7 @@ See [assets/quick_start_example.py](assets/quick_start_example.py) for a minimal
 
 ## Dependency Injection and Testing
 
-The library uses FastAPI's `Depends` for dependency injection. Plugins expose resources via dependency functions (e.g., `AioHttpResourceDepends`, `depends_status_service`, `depends_scheduler_component`).
+The library uses FastAPI's `Depends` for dependency injection. Plugins expose resources via dependency functions (e.g., `AioHttpResourceDepends`, `S3BucketDepends`, `depends_status_service`, `depends_scheduler_component`).
 
 For testing, several plugins provide mockers to create mock resources:
 
@@ -68,6 +69,7 @@ For testing, several plugins provide mockers to create mock resources:
 | [Repository Pattern](references/repository-pattern.md) | Type-safe data access, in-memory testing, `PersistedAuditableEntity` flow |
 | [AioHttp HTTP Client](references/aiohttp.md) | HTTP client with connection pooling, mocking utilities |
 | [AioPika RabbitMQ](references/aiopika.md) | Message publishing/consuming, `AbstractManagedListener`, concurrency gates, delay-retry topology, validated name types |
+| [S3 Plugin (MinIO / S3)](references/s3-plugin.md) | Async aioboto3 client, multi-bucket YAML, `S3BucketDepends` DI, STORAGE status |
 | [OpenTelemetry](references/opentelemetry.md) | Distributed tracing and metrics |
 | [Taskiq Tasks](references/taskiq.md) | Background task processing with Redis; `name_suffix` key prefixes; `prune_unregistered_schedules` |
 
