@@ -1,6 +1,6 @@
 # Application Framework
 
-The application framework provides the foundation for building microservices with a plugin-based architecture. It handles FastAPI lifespan, plugin lifecycle, configuration loading, and ASGI server selection (Uvicorn or Hypercorn).
+The application framework provides the foundation for building microservices with a plugin-based architecture. It handles FastAPI lifespan, plugin lifecycle, configuration loading, and ASGI server selection (Uvicorn, Hypercorn, or Granian).
 
 ## When to use
 
@@ -8,7 +8,7 @@ The application framework provides the foundation for building microservices wit
 - Creating plugin-based architectures for extensibility.
 - Managing application lifecycle (startup, shutdown).
 - Loading configuration from YAML files with environment overrides.
-- Choosing between Uvicorn and Hypercorn for the ASGI server.
+- Choosing between Uvicorn, Hypercorn, and Granian for the ASGI server.
 - Registering shared CSRF and validation exception handlers.
 
 ## ApplicationAbstract
@@ -91,9 +91,9 @@ class MyAppBuilder(ApplicationGenericBuilder[MyApp]):
 - `add_plugin_to_activate(plugin)` — append a plugin.
 - `add_config(config)` — provide a pre-built `RootConfig`.
 - `add_fastapi_builder(fastapi_builder)` — replace the default `FastAPIBuilder`.
-- `set_server_implementation(ServerImplementationEnum.UVICORN | HYPERCORN)` — pick the ASGI server.
+- `set_server_implementation(ServerImplementationEnum.UVICORN | HYPERCORN | GRANIAN)` — pick the ASGI server (`ServerImplementationEnum` lives in `core.app.builder`).
 - `build(**kwargs)` — instantiate the application; extra kwargs are forwarded to the application constructor (used by Velmios for JWT configs / introspect services).
-- `build_as_uvicorn_utils(**kwargs)` / `build_as_hypercorn_utils(**kwargs)` — build the application and wrap it in the matching server utility (`UvicornUtils` / `HypercornUtils`).
+- `build_as_uvicorn_utils(**kwargs)` / `build_as_hypercorn_utils(**kwargs)` / `build_as_granian_utils(**kwargs)` — build the application and wrap it in the matching server utility (`UvicornUtils` / `HypercornUtils` / `GranianUtils`).
 - `build_and_serve(**kwargs)` — convenience: build, configure logging from `root_config.logging`, and serve with the selected ASGI server. `KeyboardInterrupt` is swallowed for clean local shutdowns.
 - `configure_logging(mode, logging_config)` — call `setup_log(...)` directly.
 
@@ -101,12 +101,12 @@ The builder's `build_*` methods forward `**kwargs`, so application classes accep
 
 ### ASGI server utilities
 
-Both utilities expose:
+Uvicorn / Hypercorn / Granian utilities expose:
 
 - `add_ssl_certificates(ssl_keyfile=..., ssl_certfile=..., ssl_keyfile_password=...)`
 - `serve()` — start the server.
 
-They read host, port, workers, and reload flag from `config.server` and `config.development`. Hypercorn maps these onto `hypercorn.config.Config`; Uvicorn onto `uvicorn.Config`. `clean_uvicorn_logger()` / `clean_hypercorn_logger()` integrate the server's logger with structlog.
+They read host, port, workers, and reload flag from `config.server` and `config.development`. Hypercorn maps these onto `hypercorn.config.Config`; Uvicorn onto `uvicorn.Config`; Granian onto Granian's embed server (`core.utils.granian`). Granian warns and ignores `workers > 1` and `reload` (embed limitations). `clean_uvicorn_logger()` / `clean_hypercorn_logger()` integrate the server's logger with structlog.
 
 ## PluginAbstract
 
@@ -167,6 +167,12 @@ class MyAppBuilder(ApplicationGenericBuilder[MyApp]):
     def get_default_plugins(self) -> list:
         return [ODMPlugin(), OpenTelemetryPlugin()]
 
+    def __init__(self, plugins: list | None = None) -> None:
+        # Base builder does not call get_default_plugins — wire them here.
+        if plugins is None:
+            plugins = self.get_default_plugins()
+        super().__init__(plugins=plugins)
+
 
 if __name__ == "__main__":
     MyAppBuilder().set_server_implementation(ServerImplementationEnum.HYPERCORN).build_and_serve()
@@ -175,10 +181,11 @@ if __name__ == "__main__":
 ## Best practices
 
 1. Keep `configure()` lightweight (routes, middleware, CSRF, handlers). Do heavy lifting in `on_startup()` so the FastAPI lifespan reports startup errors clearly.
-2. Always register both `register_exception_handlers(app)` and `register_csrf_protect_exception_handler(app)` when CSRF is enabled.
-3. Pick the server implementation per environment (e.g. Hypercorn for HTTP/2 / HTTP/3, Uvicorn for legacy stacks). The choice is opaque to the rest of the app.
+2. Always register both `register_exception_handlers(app)` and `register_csrf_protect_exception_handler(app)` when CSRF is enabled — neither is auto-registered by `ApplicationAbstract`.
+3. Pick the server implementation per environment (Hypercorn for HTTP/2 / HTTP/3, Granian for embed/Rust, Uvicorn for legacy stacks). The choice is opaque to the rest of the app.
 4. Use `add_to_state(...)` for resources needed across dependencies (status service, JWT store, audit publishers).
 5. Plugin order matters: load `ODMPlugin` before repositories, and `OpenTelemetryPlugin` early so spans cover the rest of startup.
+6. Always override builder `__init__` (or pass `plugins=` / `add_plugin_to_activate`) so default plugins are actually activated.
 
 ## Reference
 
@@ -189,5 +196,6 @@ if __name__ == "__main__":
 - `src/fastapi_factory_utilities/core/app/fastapi_builder.py`
 - `src/fastapi_factory_utilities/core/utils/uvicorn.py`
 - `src/fastapi_factory_utilities/core/utils/hypercorn.py`
+- `src/fastapi_factory_utilities/core/utils/granian.py`
 - `src/fastapi_factory_utilities/core/plugins/__init__.py`
 - See also: [CSRF and validation](csrf-and-validation.md).

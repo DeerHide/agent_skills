@@ -149,6 +149,19 @@ The plugin uses Redis for:
 - **Result Backend** - Task result storage
 - **Schedule Source** - Scheduled task storage
 
+### Key prefixes (BREAKING in FFU 5.15.0)
+
+All Taskiq Redis keys are namespaced under `name_suffix`:
+
+| Purpose | Key pattern |
+|---|---|
+| Result backend | `{name_suffix}:taskiq:result` |
+| Stream broker | `{name_suffix}:taskiq:stream` |
+| Consumer group | `{name_suffix}:taskiq:consumers` |
+| Schedule source | `{name_suffix}:taskiq:schedule` |
+
+Use a stable, per-service `name_suffix` so Valkey/Redis ACLs of the form `~{svc}:*` cover the service. Changing `name_suffix` or upgrading past 5.15 without migrating schedule keys orphans pending schedules.
+
 ### Configuration
 
 ```yaml
@@ -159,6 +172,18 @@ redis:
   database: 0
   ssl: false
 ```
+
+## Prune stale schedules (FFU ≥ 5.14)
+
+After registration / startup, call `prune_unregistered_schedules()` to delete persisted cron entries whose task name is no longer registered (self-heals leftover `heartbeat` schedules from older FFU versions):
+
+```python
+removed = await scheduler.prune_unregistered_schedules()
+```
+
+### Heartbeat auto-schedule removed (FFU 5.13.2)
+
+`SchedulerComponent` no longer auto-schedules a task named `heartbeat`. Register and schedule heartbeat yourself if you need it.
 
 ## Task Lifecycle
 
@@ -275,11 +300,12 @@ async def scheduled_cleanup():
 
 ## Best Practices
 
-1. **Name Suffix**: Use unique name suffixes per application instance
+1. **Name Suffix**: Use a stable per-service `name_suffix` (Redis key ACL boundary since 5.15)
 2. **Task Naming**: Use descriptive task names
-3. **Error Handling**: Handle task failures gracefully
-4. **Result Timeout**: Configure appropriate result expiration times
-5. **Consumer Groups**: Use consumer groups for task distribution
+3. **Prune**: Call `prune_unregistered_schedules()` after deploy when dropping or renaming tasks
+4. **Error Handling**: Handle task failures gracefully
+5. **Result Timeout**: Configure appropriate result expiration times
+6. **Consumer Groups**: Use consumer groups for task distribution
 
 ## Reference
 

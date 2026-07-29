@@ -4,6 +4,7 @@ from fastapi_factory_utilities.core.app import (
     ApplicationAbstract,
     ApplicationGenericBuilder,
 )
+from fastapi_factory_utilities.core.plugins import PluginAbstract
 from fastapi_factory_utilities.core.plugins.odm_plugin import ODMPlugin
 
 
@@ -27,11 +28,21 @@ class MyApp(ApplicationAbstract):
 
 
 class MyAppBuilder(ApplicationGenericBuilder[MyApp]):
-    """Builder for MyApp."""
+    """Builder for MyApp.
 
-    def get_default_plugins(self) -> list:
+    Base ``ApplicationGenericBuilder`` does not call ``get_default_plugins``;
+    wire defaults in ``__init__`` (same pattern as ``example.app.AppBuilder``).
+    """
+
+    def get_default_plugins(self) -> list[PluginAbstract]:
         """Return default plugins."""
         return [ODMPlugin()]
+
+    def __init__(self, plugins: list[PluginAbstract] | None = None) -> None:
+        """Initialize with default plugins when none are provided."""
+        if plugins is None:
+            plugins = self.get_default_plugins()
+        super().__init__(plugins=plugins)
 
 
 if __name__ == "__main__":

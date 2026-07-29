@@ -18,23 +18,29 @@ class AbstractRepository(ABC, Generic[DocumentGenericType, EntityGenericType]):
 
 ## Plugin Pattern
 
-Implement plugins by extending `PluginAbstract`:
+Implement plugins by extending `PluginAbstract` with the FFU lifecycle hooks:
 
 ```python
-from fastapi_factory_utilities.core.plugins.abstracts import PluginAbstract
+from fastapi_factory_utilities.core.plugins import PluginAbstract
+
 
 class MyPlugin(PluginAbstract):
     """Plugin implementation."""
 
-    async def setup(self) -> Self:
-        """Setup the plugin."""
-        # Initialization logic
-        return self
+    def on_load(self) -> None:
+        """Synchronous init: validate config, register dependencies, add to app state."""
+        ...
 
-    async def shutdown(self) -> None:
-        """Shutdown the plugin."""
-        # Cleanup logic
+    async def on_startup(self) -> None:
+        """Connect to external services / start background work."""
+        ...
+
+    async def on_shutdown(self) -> None:
+        """Cleanup connections and background tasks."""
+        ...
 ```
+
+Do not invent `setup` / `shutdown` methods — those are not part of `PluginAbstract`.
 
 ## Dependency Injection
 

@@ -124,6 +124,11 @@ The logger automatically adds:
 - `module` - Module name
 - `func_name` - Function name
 - `lineno` - Line number
+- `trace_id` / `span_id` - OpenTelemetry context when a span is active (FFU ≥ 5.17.0)
+
+### Probe access log filter (FFU ≥ 5.10)
+
+`setup_log` installs `ProbeAccessLogFilter` on access loggers so `/api/v1/sys/health` and `/api/v1/sys/readiness` probes do not flood access logs.
 
 ## Exception Handling
 

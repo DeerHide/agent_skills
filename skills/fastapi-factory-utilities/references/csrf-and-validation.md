@@ -10,9 +10,11 @@ CSRF protection (via `fastapi-csrf-protect`) and centralized request-validation 
 
 ## Validation handler
 
+Handlers are **not** registered automatically. Call them from your `configure()` implementation (or when you build a bare `FastAPI` app outside the framework):
+
 ```python
 from fastapi import FastAPI
-from fastapi_factory_utilities.core.app.handlers import register_exception_handlers
+from fastapi_factory_utilities.core.app import register_exception_handlers
 
 
 app = FastAPI()
@@ -35,37 +37,48 @@ The handler binds `RequestValidationError → 422`. Response body:
 
 The handler also emits a structured `warning` log (`Validation error`) with `method`, `path`, and `errors_count`. Log payloads do not include the request body, so sensitive payloads are not leaked.
 
-`ApplicationAbstract.__init__()` calls `register_exception_handlers(self)` automatically, so manual wiring is only required when you build the FastAPI app outside the framework.
-
 ## CSRF configuration
 
-CSRF is opt-in. Provide a `CsrfSettings` model (typically a `pydantic.BaseSettings`) and wire it via `ApplicationAbstract.configure_csrf()`:
+CSRF is opt-in. Put an `AppCsrfConfig` under `csrf:` in `application.yaml` (or build an equivalent `RootConfig`), then call the zero-arg helper from `configure()`:
+
+```yaml
+csrf:
+  secret: "${CSRF_SECRET}"
+  cookie_samesite: Strict   # Lax | Strict | None
+  cookie_secure: true
+```
 
 ```python
-from pydantic_settings import BaseSettings
-
-
-class CsrfSettings(BaseSettings):
-    secret_key: str
-    cookie_samesite: str = "lax"
-    cookie_secure: bool = True
-    cookie_key: str = "csrf_token"
-    header_name: str = "X-CSRF-Token"
+from fastapi_factory_utilities.core.app import (
+    ApplicationAbstract,
+    register_csrf_protect_exception_handler,
+    register_exception_handlers,
+)
 
 
 class App(ApplicationAbstract):
-    def __init__(self, ...):
-        super().__init__(...)
-        self.configure_csrf(settings_cls=CsrfSettings)
+    def configure(self) -> None:
+        self.configure_csrf()  # reads config.csrf; raises if csrf is None
+        register_csrf_protect_exception_handler(self.get_asgi_app())
+        register_exception_handlers(self.get_asgi_app())
 ```
 
-`configure_csrf` installs the `CsrfProtect` config loader, registers the protection extension, and stores the resolved `CsrfProtect` instance on `app.state` so dependencies can read it.
+`configure_csrf()` maps `AppCsrfConfig` fields onto `fastapi-csrf-protect`:
+
+| Config field | Protect setting |
+|---|---|
+| `secret` | `secret_key` |
+| `cookie_samesite` (lowercased) | `cookie_samesite` |
+| `cookie_secure` | `cookie_secure` |
+
+It then stores the resolved `CsrfProtect` instance on `app.state` via `DependsCsrfProtect.import_to_state`.
 
 ### Dependency injection
 
 ```python
+from fastapi import Depends, Request
 from fastapi_csrf_protect import CsrfProtect
-from fastapi_factory_utilities.core.app.csrf import depends_csrf_protect
+from fastapi_factory_utilities.core.app import depends_csrf_protect
 
 
 @router.post("/sensitive")
@@ -79,7 +92,7 @@ async def sensitive_action(request: Request, csrf: CsrfProtect = Depends(depends
 ### Exception handler
 
 ```python
-from fastapi_factory_utilities.core.app.csrf import register_csrf_protect_exception_handler
+from fastapi_factory_utilities.core.app import register_csrf_protect_exception_handler
 
 
 register_csrf_protect_exception_handler(app)
@@ -99,7 +112,7 @@ with HTTP status **403 Forbidden**. A structured `warning` log (`CSRF error`) ac
 
 Velmios builds on top of these handlers via `register_security_exception_handlers(app)` (see Velmios Exception handling (`velmios-lib` in laelidona/velmios-skills)). Order of registration inside `velmios_configure()`:
 
-1. FFU `register_exception_handlers(app)` (validation → 422). Inherited from `ApplicationAbstract.__init__()`.
+1. FFU `register_exception_handlers(app)` (validation → 422) — call explicitly in `configure()`.
 2. FFU `register_csrf_protect_exception_handler(app)` (CSRF → 403).
 3. Velmios `register_security_exception_handlers(app)` (authentication / authorization → 401 / 403 with OTel telemetry).
 
@@ -117,8 +130,8 @@ Because FastAPI keeps a per-exception-type registry, each handler routes the spe
 
 ## Best practices
 
-1. Always register validation and CSRF handlers — they make API misuse visible and easy to debug.
-2. Pair CSRF protection with `cookie_secure=True` and `samesite="strict"` for production deployments.
+1. Always register validation and CSRF handlers in `configure()` — they are not installed by `ApplicationAbstract.__init__`.
+2. Pair CSRF protection with `cookie_secure=True` and `cookie_samesite: Strict` for production deployments.
 3. Surface validation errors with `detail` as-is to clients — Pydantic's structure is consistent and machine-friendly.
 4. When extending validation behavior, prefer composing custom Pydantic validators instead of replacing the handler.
 
@@ -126,5 +139,6 @@ Because FastAPI keeps a per-exception-type registry, each handler routes the spe
 
 - `src/fastapi_factory_utilities/core/app/handlers.py`
 - `src/fastapi_factory_utilities/core/app/csrf.py`
+- `src/fastapi_factory_utilities/core/app/config.py` (`AppCsrfConfig`)
 - `src/fastapi_factory_utilities/core/app/application.py` (`configure_csrf`)
 - See also: [Application framework](application-framework.md), Velmios Exception handling (`velmios-lib` in laelidona/velmios-skills).

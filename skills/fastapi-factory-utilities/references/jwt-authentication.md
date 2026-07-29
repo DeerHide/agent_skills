@@ -79,12 +79,18 @@ class JWTBearerAuthenticationConfig(BaseModel):
     authorized_locations: list[JWTLocation] = Field(default_factory=lambda: [JWTLocation.AUTHORIZATION_BEARER])
     header_name: str | None = None
     cookie_name: str | None = None
+
+    # Hydra introspect cache (FFU ≥ 5.9.0) — used by GenericHydraJWTVerifier
+    cache_enabled: bool = False
+    cache_ttl_seconds: int = 300
+    cache_max_entries: int = 10000
 ```
 
 - `authorized_algorithms` MUST be in PyJWT's `requires_cryptography` set; e.g. `["RS256"]`.
 - `authorized_audiences` accepts a comma-separated string or list; trimmed and deduplicated.
 - `audience` lives on the config (moved out of `BaseApplicationConfig` in FFU v0.19.2) and is used as the default audience for signing/verifying.
 - `authorized_locations` selects extraction strategies; combine `HEADER`, `AUTHORIZATION_BEARER`, and `COOKIE` as needed (custom `header_name` / `cookie_name` required for those locations).
+- When `cache_enabled` is true, introspection results are keyed by JWT `jti` in a process-local `cacheout` cache; TTL is `min(cache_ttl_seconds, token remaining lifetime)`. Disable in tests or multi-process embed setups that must not share cache state.
 
 `JWTBearerAuthenticationConfigBuilder(key=...)` loads a config from `application.yaml` under `jwt_configs.{key}`. `DependsJWTBearerAuthenticationConfig.import_to_state(state, config, key=...)` stores the config on `app.state` so dependencies can fetch the right key per route stack (Velmios uses `"internal"` and `"customer"`).
 

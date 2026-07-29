@@ -1,9 +1,9 @@
 ---
 name: fastapi-factory-utilities
-description: Build FastAPI microservices with plugins, typed PUT updates and reconciliation, message brokers, OAuth2/OIDC, OpenTelemetry, CSRF and validation handlers, Uvicorn or Hypercorn, and structured logging.
+description: Build FastAPI microservices with plugins, typed PUT updates and reconciliation, message brokers, OAuth2/OIDC, OpenTelemetry, CSRF and validation handlers, Uvicorn/Hypercorn/Granian, and structured logging.
 metadata:
   author: Deerhide
-  version: 2.0.0
+  version: 2.1.0
 ---
 # FastAPI Factory Utilities
 
@@ -11,24 +11,24 @@ A library for building production-ready FastAPI microservices with a plugin-base
 
 ## When to use this skill?
 
-- Use this skill when building FastAPI microservices with the `fastapi_factory_utilities` library (v5.x).
-- Use this skill when implementing plugin-based architectures and lifecycle hooks (`configure`, `on_startup`, `on_shutdown`).
-- Use this skill when setting up OAuth2/OIDC authentication with Hydra (introspection, JWKS) or Kratos (session, admin identity, `delete_session`).
+- Use this skill when building FastAPI microservices with the `fastapi_factory_utilities` library (v5.x, aligned through **v5.18.x**).
+- Use this skill when implementing plugin-based architectures and lifecycle hooks (`configure`, `on_startup`, `on_shutdown`; plugins use `on_load` / `on_startup` / `on_shutdown`).
+- Use this skill when setting up OAuth2/OIDC authentication with Hydra (introspection, JWKS, optional introspect cache) or Kratos (session, admin identity, `delete_session`).
 - Use this skill when configuring MongoDB with Beanie ODM, with `PersistedEntity` mixing in `SearchableEntity` and `ApiResponseModelAbstract`.
-- Use this skill when implementing RabbitMQ message brokers with AioPika and validated routing-key / queue / exchange types.
-- Use this skill when setting up background task processing with Taskiq and Redis.
+- Use this skill when implementing RabbitMQ message brokers with AioPika (`AbstractManagedListener`, concurrency gates, delay-retry topology).
+- Use this skill when setting up background task processing with Taskiq and Redis (`name_suffix` key prefixes, `prune_unregistered_schedules`).
 - Use this skill when configuring OpenTelemetry for distributed tracing and metrics.
-- Use this skill when implementing structured logging with `structlog`.
+- Use this skill when implementing structured logging with `structlog` (OTel `trace_id`/`span_id`, probe access-log filter).
 - Use this skill when using dependency injection patterns with FastAPI's `Depends` system (typed resource depends, in-memory mockers).
 - Use this skill when creating mock resources for testing (AioHttp, in-memory ODM repositories).
 - Use this skill when implementing repository patterns for data access (`AbstractRepository`, `AbstractRepositoryInMemory`).
 - Use this skill when configuring health checks and status services.
-- Use this skill when implementing JWT Bearer authentication with JWKS verification (`JWTBearerAuthenticationConfig`, `JWTBearerAuthenticationConfigBuilder`, configurable bearer extraction strategies, `ExpiredJWTError`).
-- Use this skill when implementing typed list/search query parameters (`QueryAbstract`, `QueryResolver`, `QueryFieldOperation`) with coercion for `UUID`, `NewType`, `enum.Flag` / `IntFlag` / `Enum` / `StrEnum`, and lists for `in` / `nin`, plus optional sparse fieldset projection via the `fields` query param on search endpoints.
+- Use this skill when implementing JWT Bearer authentication with JWKS verification (`JWTBearerAuthenticationConfig`, `JWTBearerAuthenticationConfigBuilder`, configurable bearer extraction strategies, `ExpiredJWTError`, introspect cache fields).
+- Use this skill when implementing typed list/search query parameters (`QueryAbstract`, `QueryResolver`, `QueryFieldOperation`, `build_query_filter_kwargs`) with coercion for `UUID`, `NewType`, `enum.Flag` / `IntFlag` / `Enum` / `StrEnum`, nested sequence filters, and lists for `in` / `nin`, plus optional sparse fieldset projection via the `fields` query param on search endpoints.
 - Use this skill when defining API response and PUT update contracts (`ApiResponseModelAbstract`, `ApiResponseField`, `ApiField`, `ApiEntityAbstract`, `UpdateableField`, `reconcile_update_request`).
-- Use this skill when registering exception handlers for request validation (HTTP 422) and CSRF (HTTP 403) with `register_exception_handlers` / `register_csrf_protect_exception_handler`.
+- Use this skill when registering exception handlers for request validation (HTTP 422) and CSRF (HTTP 403) with `register_exception_handlers` / `register_csrf_protect_exception_handler` (manual registration in `configure()`).
 - Use this skill when publishing audit events through `AbstractAuditPublisherService` / `AuditEventObject` / `PersistedAuditableEntity` and the `{prefix}.{domain}.{service}.{what}.{why}` routing-key pattern.
-- Use this skill when running the ASGI app under Uvicorn or Hypercorn via `build_as_uvicorn_utils`, `build_as_hypercorn_utils`, or `build_and_serve`.
+- Use this skill when running the ASGI app under Uvicorn, Hypercorn, or Granian via `build_as_uvicorn_utils`, `build_as_hypercorn_utils`, `build_as_granian_utils`, or `build_and_serve`.
 
 ---
 
@@ -54,7 +54,7 @@ For testing, several plugins provide mockers to create mock resources:
 
 | Reference | Description |
 |-----------|-------------|
-| [Application Framework](references/application-framework.md) | `ApplicationAbstract`, builders, plugin lifecycle, Uvicorn/Hypercorn server utilities, `register_exception_handlers` |
+| [Application Framework](references/application-framework.md) | `ApplicationAbstract`, builders, plugin lifecycle, Uvicorn/Hypercorn/Granian server utilities, `register_exception_handlers` |
 | [Configuration](references/configuration-utilities.md) | YAML loading, environment variables, type-safe `RootConfig` |
 | [Logging](references/logging-utilities.md) | Structured logging with `structlog` |
 | [Status Service](references/status-service.md) | Health and readiness monitoring |
@@ -67,9 +67,9 @@ For testing, several plugins provide mockers to create mock resources:
 | [ODM Plugin (MongoDB)](references/odm-plugin.md) | MongoDB/Beanie integration, generic `PersistedEntity[Id]`, `ODMQueryBuilder` / `ODMFindQuery`, `id` → `_id` mapping |
 | [Repository Pattern](references/repository-pattern.md) | Type-safe data access, in-memory testing, `PersistedAuditableEntity` flow |
 | [AioHttp HTTP Client](references/aiohttp.md) | HTTP client with connection pooling, mocking utilities |
-| [AioPika RabbitMQ](references/aiopika.md) | Message publishing/consuming, validated `PartStr` / `RoutingKey` / `QueueName` / `ExchangeName`, fluent builders, wildcard listener patterns, exclusivity override |
+| [AioPika RabbitMQ](references/aiopika.md) | Message publishing/consuming, `AbstractManagedListener`, concurrency gates, delay-retry topology, validated name types |
 | [OpenTelemetry](references/opentelemetry.md) | Distributed tracing and metrics |
-| [Taskiq Tasks](references/taskiq.md) | Background task processing with Redis |
+| [Taskiq Tasks](references/taskiq.md) | Background task processing with Redis; `name_suffix` key prefixes; `prune_unregistered_schedules` |
 
 ### Services
 
@@ -105,4 +105,4 @@ For testing, several plugins provide mockers to create mock resources:
 7. **Audit events** — Always set `entity`, `domain`, `service`, and `use_case` on `AuditEventObject`; use `AbstractAuditPublisherService.publish` and react to `AuditServiceError`.
 8. **PUT updates** — Mark client-writable fields with `UpdateableField`, call `reconcile_update_request`, and surface `changed`, `ignored_paths`, and `unchanged_paths` in audit metadata.
 9. **Exception handling** — Always register validation, CSRF, and (in downstream apps) security exception handlers at app configuration time so that 401/403/422 envelopes stay consistent.
-10. **ASGI server choice** — Prefer `build_and_serve` and select Uvicorn or Hypercorn from configuration.
+10. **ASGI server choice** — Prefer `build_and_serve` and select Uvicorn, Hypercorn, or Granian from configuration.

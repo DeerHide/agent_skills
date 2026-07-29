@@ -7,13 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **fastapi-factory-utilities** skill: align content with library **v5.18.x** (skill metadata **2.1.0**).
+  - **CSRF / validation**: rewrite `configure_csrf()` as zero-arg from `config.csrf` / `AppCsrfConfig`; remove false claim that `register_exception_handlers` runs in `__init__` (must call from `configure()`).
+  - **Pagination**: retarget imports from deleted `core.utils.paginations` to `core.utils.api`; drop "legacy re-export" claim in query-utilities.
+  - **Quick start**: wire `get_default_plugins` via builder `__init__` (base builder never calls it).
+  - **ASGI**: document Granian (`build_as_granian_utils`, `ServerImplementationEnum.GRANIAN`).
+  - **AioPika**: document `AbstractManagedListener`, concurrency gates, delay-retry helpers, `MessageDeliveryOutcome`.
+  - **Taskiq**: document Redis key prefixes (`{name_suffix}:taskiq:…`, 5.15 BREAKING), `prune_unregistered_schedules`, heartbeat auto-schedule removal.
+  - **JWT**: document introspect cache fields (`cache_enabled` / TTL / max entries, 5.9).
+  - **Logging**: document OTel `trace_id`/`span_id` injection (5.17) and `ProbeAccessLogFilter` (5.10).
+  - **Query utilities**: document nested sequence filters and `build_query_filter_kwargs` (5.18).
+- **python** skill: `PluginAbstract` snippet uses `on_load` / `on_startup` / `on_shutdown` (was stale `setup` / `shutdown`).
+
 ### Removed
 
 - **velmios-lib** skill: migrated to [laelidona/velmios-skills](https://github.com/laelidona/velmios-skills) (`velmios-lib/`). Install and maintain that skill from the Velmios skills repo going forward.
-
-### Changed
-
-- **fastapi-factory-utilities** skill: replace relative links to the removed sibling `velmios-lib` skill with textual pointers to `laelidona/velmios-skills`.
 
 ## [2.0.1] - 2026-06-20
 

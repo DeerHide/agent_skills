@@ -11,7 +11,7 @@ Typed parsing of query-string filters, sorting, and pagination for list/search e
 
 ## Module layout (v3.x+)
 
-Since v3.x the previously split `core.utils.api`, `core.utils.queries`, and `core.utils.paginations` are consolidated under `fastapi_factory_utilities.core.utils.api`. The legacy paths re-export the same names where possible. A single `ApiField` marker now drives behavior; convenience singletons remain for ergonomics:
+Since v3.x / 4.4.4 the previously split `core.utils.api`, `core.utils.queries`, and `core.utils.paginations` are consolidated under `fastapi_factory_utilities.core.utils.api`. The old `queries` / `paginations` packages are **gone** — import pagination and query symbols only from `core.utils.api`. A single `ApiField` marker now drives behavior; convenience singletons remain for ergonomics:
 
 - `ApiResponseField = ApiField()` — response-only.
 - `UpdateableField = ApiField(updateable=True)` — response + PUT updateable.
@@ -36,6 +36,7 @@ Compose with `Annotated[T, ApiField(...), ApiField(...)]`; flags are OR-merged.
 | `QueryField`, `QueryFieldName`, `QueryFieldOperation`, `QuerySort`, `RawQueryFieldName`, `RawQuerySort` | Field operations and sort tokens. |
 | `QueryFieldOperatorEnum`, `QuerySortDirectionEnum` | Operators and sort direction. |
 | `QueryResolver` | Maps raw query parameters into a concrete `QueryAbstract` subclass. |
+| `build_query_filter_kwargs` | Re-nests dotted `QueryResolver.fields` into kwargs for `model_construct` (FFU ≥ 5.18). |
 | `PaginationPageOffset`, `PaginationSize`, `resolve_offset` | Pagination value objects and helper. |
 | `FIELDS_QUERY_PARAM`, `parse_fields_param`, `project`, `fields_query_param` | Sparse fieldset projection for search/list responses (`?fields=`). |
 | `has_response_flag`, `has_updateable_flag`, `has_searchable_flag` | Inspect `ApiField` metadata tuples. |
@@ -154,6 +155,12 @@ Unknown field paths are silently ignored in v1 (no schema validation against `ge
 
 `ApiEntityAbstract` (and any class that extends only `ApiResponseModelAbstract` + `SearchableEntity`) **no longer inherits `QueryAbstract`**. Entities are no longer accidentally pagination-aware; build the filter model explicitly via `Entity.build_query_filter_model()` and assign it to a named class for typing/OpenAPI.
 
+## Nested sequence filters (FFU ≥ 5.18)
+
+`SearchableEntity.build_query_filter_model()` descends into homogeneous sequences of nested models (`list[Address]`, etc.) via `nested_basemodel_for_annotation(..., descend_sequences=True)`. Query dotted paths can therefore target fields inside list elements.
+
+When constructing a filter instance from `QueryResolver.fields`, use `build_query_filter_kwargs(FilterModel, resolver.fields)` before `FilterModel.model_construct(**kwargs)` — dotted keys must be re-nested or Pydantic silently drops them.
+
 ## Reference (source)
 
 - `src/fastapi_factory_utilities/core/utils/api/__init__.py`
@@ -164,4 +171,5 @@ Unknown field paths are silently ignored in v1 (no schema validation against `ge
 - `src/fastapi_factory_utilities/core/utils/api/searchable_entity.py`
 - `src/fastapi_factory_utilities/core/utils/api/pagination.py`
 - `src/fastapi_factory_utilities/core/utils/api/projection.py`
+- `src/fastapi_factory_utilities/core/utils/pydantic_path_fields.py`
 - `src/fastapi_factory_utilities/core/plugins/odm_plugin/queries.py`
