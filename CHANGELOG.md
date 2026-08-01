@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **commit** skill: Phase 3 now **MUST** run `pre-commit install` (pre-commit +
+  commit-msg, and pre-push when configured) and verify `.git/hooks` before any
+  commit; new Phase 6 gates push with re-install + optional
+  `pre-commit run --all-files`. Stops assuming a present config means hooks
+  are wired (common cause of CI commitlint failures).
+
 ## [2.0.2] - 2026-07-29
 
 ### Added
