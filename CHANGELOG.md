@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **fastapi-factory-utilities** skill: align with library **v7.2.x** (skill metadata **2.3.0**).
+  - **AioPika**: `precheck` returns `MessageDeliveryOutcome`; poison is `requeue=False`; document `PREFETCH_COUNT` and `on_gate_saturated`.
+  - **JWT**: `authorized_audiences` required; introspect cache keyed by issuer + NUL + `jti`, hits re-check `exp`.
+  - **Audit**: default `pre_publish_hook` runs `redact(entity)`; mark PII with `Redacted()`.
+  - **Config**: deny-by-default CORS, `docs.enabled`, URL-only Redis/AMQP credentials.
+  - **Taskiq**: cron single-flight lock, `ensure_cron_schedule`, stream `maxlen=10_000`.
+  - **RedisPlugin**, ODM CSFLE, and `PluginStatusMixin` documented.
+
 - **commit** skill: Phase 3 now **MUST** run `pre-commit install` (pre-commit +
   commit-msg, and pre-push when configured) and verify `.git/hooks` before any
   commit; new Phase 6 gates push with re-install + optional

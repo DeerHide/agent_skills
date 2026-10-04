@@ -162,6 +162,21 @@ async def health(client = Depends(depends_odm_client)):
 
 The plugin reports `HEALTHY` / `READY` on successful connection, `UNHEALTHY` / `NOT_READY` on failure. Component type `DATABASE`, identifier `MongoDB`.
 
+## Client-side field-level encryption (CSFLE)
+
+Declare encrypted field paths on the document. Do not encrypt/decrypt at call sites.
+
+```python
+class ProcessorCredsDocument(BaseDocument):
+    class Settings(BaseDocument.Settings):
+        collection = "processor_creds"
+        encrypted_fields = ["creds.client_secret"]
+```
+
+Enable on `ODMConfig` (`csfle_enabled: true`). Required together: `csfle_vault_address`, `csfle_vault_auth_mount`, `csfle_vault_role`, `csfle_vault_transit_key`, `csfle_master_key_ciphertext`. Optional `csfle_key_vault_collection` (default `__keyVault` in the service database).
+
+Startup unwraps the local KMS master key via Vault Transit (`VaultUnwrapClient` Kubernetes auth), builds a `schemaMap` from `encrypted_fields`, and runs a probe insert/delete on `__csfle_startup_probe` so mongocryptd is spawned before the first request. Algorithm is randomized only (`AEAD_AES_256_CBC_HMAC_SHA_512-Random`); encrypted fields MUST NOT be queried by value.
+
 ## Error handling
 
 ```python
@@ -196,4 +211,5 @@ except OperationError as exc:
 - `src/fastapi_factory_utilities/core/plugins/odm_plugin/depends.py`
 - `src/fastapi_factory_utilities/core/plugins/odm_plugin/queries.py`
 - `src/fastapi_factory_utilities/core/plugins/odm_plugin/builder.py`
+- `src/fastapi_factory_utilities/core/plugins/odm_plugin/encryption/`
 - See also: [Query utilities](query-utilities.md), [API response & PUT update model](api-response-and-update.md), [Repository pattern](repository-pattern.md).

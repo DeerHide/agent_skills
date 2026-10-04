@@ -12,7 +12,7 @@ The AioPika plugin provides RabbitMQ message broker integration with validated n
 ## Module entry points
 
 ```python
-from fastapi_factory_utilities.core.plugins.aiopika import (
+from fastapi_factory_utilities.core.plugins.aiopika_plugin import (
     AbstractListener,
     AbstractManagedListener,
     AbstractPublisher,
@@ -55,7 +55,7 @@ from fastapi_factory_utilities.core.plugins.aiopika import (
 Use the builders to construct routing keys, queue names, and exchange names instead of hand-crafted strings.
 
 ```python
-from fastapi_factory_utilities.core.plugins.aiopika import (
+from fastapi_factory_utilities.core.plugins.aiopika_plugin import (
     EventRoutingKeyBuilder,
     ListenerRoutingKeyBuilder,
     QueueNameBuilder,
@@ -120,7 +120,7 @@ Methods:
 - `set_incoming_message(...)` — used internally by `AbstractListener` to bind the incoming AMQP message for ack/reject.
 - `ack()`, `reject(requeue)` — proxy methods on the underlying incoming message.
 
-Message bodies are encoded / decoded as UTF-8 JSON (`json.loads(body.decode("utf-8"))`); invalid bytes or invalid JSON are rejected with `requeue=True` so an upstream consumer can inspect or DLQ them.
+Message bodies are encoded / decoded as UTF-8 JSON (`json.loads(body.decode("utf-8"))`). Poison payloads (invalid bytes, JSON, or schema) are `reject(requeue=False)` so they never re-enter the queue.
 
 ## AbstractListener
 
@@ -136,29 +136,39 @@ class OrderListener(AbstractListener[OrderMessage]):
 
 - The concrete `GenericMessage` subclass is inferred from `__orig_bases__`.
 - `exclusive` defaults to `queue.exclusive`; pass `True` / `False` on `__init__` to override per listener instance — useful when one queue serves both an exclusive primary consumer and shared replay consumers.
-- `_on_message` (private) is the wire-level callback. It decodes UTF-8 JSON, validates the message, and dispatches to `on_message`. Decoding / validation failures `reject(requeue=True)` and log a structured error.
+- `_on_message` (private) is the wire-level callback. It decodes UTF-8 JSON, validates the message, and dispatches to `on_message`. Decoding / validation failures `reject(requeue=False)` and log a structured error.
 
-## AbstractManagedListener (FFU ≥ 5.12)
+## AbstractManagedListener
 
 Prefer `AbstractManagedListener` when consumers need a pre-check filter, concurrency limiting, and consistent ack/nack settlement:
 
 ```python
 class OrderManagedListener(AbstractManagedListener[OrderMessage]):
     LISTENER_CONCURRENCY_LIMIT = 8  # optional ClassVar
+    PREFETCH_COUNT = 16  # optional; applied as basic.qos before consume
+    POISON_MESSAGE_REQUEUE = False  # default: drop invalid JSON / schema
 
     async def process_message(self, message: OrderMessage) -> None:
         await process_order(message.data)
 
-    async def precheck(self, message: OrderMessage) -> bool:
-        """Cheap filter before acquiring the concurrency gate. Return False to skip."""
-        return True
+    async def precheck(self, message: OrderMessage) -> MessageDeliveryOutcome:
+        """Cheap filter before acquiring the concurrency gate."""
+        return MessageDeliveryOutcome.CONTINUE
 
     def map_exception_to_outcome(self, exc: Exception) -> MessageDeliveryOutcome:
         """Map handler failures to ACK / NACK / REQUEUE via settle_message."""
         return MessageDeliveryOutcome.REQUEUE
+
+    async def on_gate_saturated(self, message: OrderMessage) -> MessageDeliveryOutcome:
+        """Default REQUEUE. Override to delay instead of hot-looping redeliveries."""
+        return MessageDeliveryOutcome.REQUEUE
 ```
 
 - Flow: decode → `precheck` → concurrency gate → `process_message` → `settle_message(outcome)`.
+- `precheck` returns `MessageDeliveryOutcome`. Return `CONTINUE` to acquire the gate and process; any other outcome settles immediately (skip / ack / nack / requeue).
+- `PREFETCH_COUNT` / `prefetch_count()` apply optional `basic.qos` before consume. `None` leaves broker defaults. A value must be `>= 1`.
+- `on_gate_saturated` runs when the concurrency gate is full. Default is immediate `REQUEUE`. Override to republish onto a TTL retry queue so a saturated worker does not hot-loop.
+- Poison (decode / validation failure) uses `reject(requeue=POISON_MESSAGE_REQUEUE)` (default `False`).
 - Gates: `ConcurrencyGate` / `LocalConcurrencyGate` (default local); configure with `LISTENER_CONCURRENCY_LIMIT` / `GATE_KEY`.
 - Delay / retry topology helpers: `declare_delay_retry_topology`, `build_retry_queue_arguments`, `build_main_queue_dead_letter_arguments`, `declare_queue_with_optional_recreate`.
 - Delivery: `MessageDeliveryOutcome` + `settle_message` — do not ack/reject by hand inside `process_message`.
@@ -197,13 +207,13 @@ Bridges the FastAPI application to a robust RabbitMQ connection.
 plugin = AiopikaPlugin()
 ```
 
-The plugin builds an `aio_pika.connect_robust` connection from `RabbitMQCredentialsConfig` (see `core.utils.rabbitmq_configs`). Connection failures (`AMQPConnectionError`) are wrapped in `AiopikaPluginBaseError("Failed to connect to RabbitMQ")` so the app's startup pipeline reports a single, structured error.
+The plugin builds an `aio_pika.connect_robust` connection from `RabbitMQCredentialsConfig` (`aiopika_plugin.configs`; YAML `rabbitmq.amqp_url`). Connection failures (`AMQPConnectionError`) are wrapped in `AiopikaPluginBaseError("Failed to connect to RabbitMQ")` so the app's startup pipeline reports a single, structured error.
 
 Access the connection from a request:
 
 ```python
 from fastapi import Depends
-from fastapi_factory_utilities.core.plugins.aiopika.depends import depends_aiopika_robust_connection
+from fastapi_factory_utilities.core.plugins.aiopika_plugin import depends_aiopika_robust_connection
 
 
 @router.get("/status")
@@ -218,7 +228,7 @@ When the OpenTelemetry plugin is enabled, the AioPika plugin emits publish / con
 ## Error handling
 
 ```python
-from fastapi_factory_utilities.core.plugins.aiopika import AiopikaPluginBaseError
+from fastapi_factory_utilities.core.plugins.aiopika_plugin import AiopikaPluginBaseError
 
 try:
     await publisher.publish(message=message, routing_key=key)
@@ -233,20 +243,17 @@ except AiopikaPluginBaseError as exc:
 1. Use the builders for routing keys, queue names, and exchange names — never hard-code dotted strings.
 2. Use `PartStr` wildcards (`*`) only for listener patterns; producers should always emit concrete keys.
 3. Prefer `AbstractManagedListener` for production consumers (precheck + gate + settlement); use bare `AbstractListener` only for simple ack/reject flows.
-4. Treat `requeue=True` carefully — pair with delay-retry / DLQ helpers to avoid infinite re-delivery on malformed payloads.
+4. Leave `POISON_MESSAGE_REQUEUE` at `False` for malformed payloads. Use delay-retry topology from `on_gate_saturated` / `map_exception_to_outcome` for transient failures, not poison.
 5. Always call `setup()` on queues and exchanges before publishing or consuming; failures during `setup()` are easier to diagnose than surprise channel errors later.
 
 ## Reference
 
-- `src/fastapi_factory_utilities/core/plugins/aiopika/__init__.py`
-- `src/fastapi_factory_utilities/core/plugins/aiopika/types.py`
-- `src/fastapi_factory_utilities/core/plugins/aiopika/builders.py`
-- `src/fastapi_factory_utilities/core/plugins/aiopika/queue.py`
-- `src/fastapi_factory_utilities/core/plugins/aiopika/exchange.py`
-- `src/fastapi_factory_utilities/core/plugins/aiopika/message.py`
-- `src/fastapi_factory_utilities/core/plugins/aiopika/listener/abstract.py`
-- `src/fastapi_factory_utilities/core/plugins/aiopika/listener/managed.py`
-- `src/fastapi_factory_utilities/core/plugins/aiopika/concurrency/`
-- `src/fastapi_factory_utilities/core/plugins/aiopika/delivery.py`
-- `src/fastapi_factory_utilities/core/plugins/aiopika/publisher/abstract.py`
-- `src/fastapi_factory_utilities/core/plugins/aiopika/plugins.py`
+- `src/fastapi_factory_utilities/core/plugins/aiopika_plugin/__init__.py`
+- `src/fastapi_factory_utilities/core/plugins/aiopika_plugin/types.py`
+- `src/fastapi_factory_utilities/core/plugins/aiopika_plugin/queue.py`
+- `src/fastapi_factory_utilities/core/plugins/aiopika_plugin/exchange.py`
+- `src/fastapi_factory_utilities/core/plugins/aiopika_plugin/listener/abstract.py`
+- `src/fastapi_factory_utilities/core/plugins/aiopika_plugin/listener/managed.py`
+- `src/fastapi_factory_utilities/core/plugins/aiopika_plugin/concurrency/`
+- `src/fastapi_factory_utilities/core/plugins/aiopika_plugin/publisher/abstract.py`
+- `src/fastapi_factory_utilities/core/plugins/aiopika_plugin/plugins.py`

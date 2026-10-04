@@ -51,7 +51,19 @@ Validators:
 - `who` MUST be a non-empty `dict[str, Any]`. The producer typically includes the actor id, and may also include realm, group, or session ids.
 - `use_case` is a `NewType` wrapper over `PartStr` (validated routing-key part).
 
-**`pre_publish_hook(cls, entity)`** is a class method called by the publisher to scrub sensitive data from the actor entity before publishing. Override on subclasses to redact PII.
+**`pre_publish_hook(cls, entity)`** runs before publish. The default implementation is `return redact(entity)`: fields annotated with `Redacted()` on the actor entity are replaced. Mark PII on the entity; override the hook only for extra filtering, and call `super().pre_publish_hook(entity)` first.
+
+```python
+from typing import Annotated
+from fastapi_factory_utilities.core.utils.api import Redacted
+
+class BookEntity(PersistedAuditableEntity[BookEntityId]):
+    title: str
+    owner_email: Annotated[str | None, Redacted()] = None  # default replacement None
+    password_hash: Annotated[str, Redacted("[redacted]")]  # non-nullable needs an explicit replacement
+```
+
+`Redacted()` with default `replacement=None` requires a nullable annotation. Mutable replacements are deep-copied per redaction.
 
 ### Auditable entities
 
@@ -153,7 +165,7 @@ except AuditServiceError as exc:
 
 1. Define one publisher subclass per service (set `ROUTING_KEY_*` constants).
 2. Always populate `entity`, `domain`, `service`, and `use_case` on the audit event; default `unknown` should only appear in test code.
-3. Implement `pre_publish_hook` to scrub PII (passwords, raw tokens, etc.).
+3. Mark sensitive entity fields with `Redacted()` (or `Redacted("[redacted]")` on non-nullable types); the default `pre_publish_hook` calls `redact(entity)`.
 4. Pair the publisher with `AbstractAuditListenerService` exclusivity overrides when multiple consumers share a queue (see [AioPika](aiopika.md)).
 5. Catch `AuditServiceError` only when the caller can persist the event for replay; otherwise let it bubble for observability.
 
