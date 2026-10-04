@@ -124,41 +124,27 @@ Configuration for Redis connections.
 ### Building from Application
 
 ```python
-from fastapi_factory_utilities.core.utils.redis_configs import (
+from fastapi_factory_utilities.core.plugins.redis_plugin.builder import (
     build_redis_credentials_config,
 )
 
 config = build_redis_credentials_config(application=app)
-# Uses application.PACKAGE_NAME to load from YAML
+# Loads the `redis:` section of `{PACKAGE_NAME}/application.yaml`
 ```
 
 ### YAML Configuration
 
 ```yaml
 redis:
-  host: "localhost"
-  port: 6379
-  password: ""
-  database: 0
-  ssl: false
+  url: "${REDIS_URL:redis://localhost:6379/0}"
 ```
 
 ### Manual Configuration
 
 ```python
-from fastapi_factory_utilities.core.utils.redis_configs import (
-    RedisCredentialsConfig,
-)
+from fastapi_factory_utilities.core.plugins.redis_plugin import RedisCredentialsConfig
 
-config = RedisCredentialsConfig(
-    host="localhost",
-    port=6379,
-    password="secret",
-    database=0,
-    ssl=False,
-)
-
-url = config.url  # "redis://:secret@localhost:6379/0"
+config = RedisCredentialsConfig(url="redis://:secret@localhost:6379/0")
 ```
 
 ## RabbitMQCredentialsConfig
@@ -168,42 +154,18 @@ Configuration for RabbitMQ connections.
 ### Building from Package
 
 ```python
-from fastapi_factory_utilities.core.utils.rabbitmq_configs import (
-    build_rabbitmq_credentials_config,
-)
-
-config = build_rabbitmq_credentials_config(package_name="my_app")
+from fastapi_factory_utilities.core.plugins.aiopika_plugin import RabbitMQCredentialsConfig
 ```
 
-### YAML Configuration
+Frozen model with a single field: `amqp_url` (`amqp` / `amqps`).
 
 ```yaml
 rabbitmq:
-  host: "localhost"
-  port: 5672
-  username: "guest"
-  password: "guest"
-  virtual_host: "/"
-  ssl: false
+  amqp_url: "${RABBITMQ_URL:amqp://guest:guest@localhost:5672/}"
 ```
 
-### Manual Configuration
-
 ```python
-from fastapi_factory_utilities.core.utils.rabbitmq_configs import (
-    RabbitMQCredentialsConfig,
-)
-
-config = RabbitMQCredentialsConfig(
-    host="localhost",
-    port=5672,
-    username="guest",
-    password="guest",
-    virtual_host="/",
-    ssl=False,
-)
-
-amqp_url = config.amqp_url  # "amqp://guest:guest@localhost:5672/"
+config = RabbitMQCredentialsConfig(amqp_url="amqp://guest:guest@localhost:5672/")
 ```
 
 ## Configuration Hierarchy
@@ -214,20 +176,28 @@ RootConfig
 │   ├── service_namespace: str
 │   ├── service_name: str
 │   ├── environment: EnvironmentEnum
+│   ├── description: str
 │   ├── version: str
-│   └── audience: str
+│   └── root_path: str
 ├── server: ServerConfig
 │   ├── host: str
 │   ├── port: int
 │   └── workers: int
 ├── cors: CorsConfig
-│   ├── allow_origins: list[str]
-│   └── ...
+│   ├── allow_origins: list[str]   # default []; empty skips CORS middleware
+│   ├── allow_credentials: bool    # default False; rejected with allow_origins "*"
+│   ├── allow_methods / allow_headers / expose_headers / max_age
+├── docs: DocsConfig
+│   └── enabled: bool | None       # None = /docs only when environment is development
 ├── development: DevelopmentConfig
 │   ├── debug: bool
 │   └── reload: bool
 └── logging: list[LoggingConfig]
 ```
+
+CORS is deny-by-default. `FastAPIBuilder` installs `CORSMiddleware` only when `allow_origins` is non-empty. Combining `"*"` with `allow_credentials=True` raises `ValueError` (Starlette would reflect arbitrary `Origin` values).
+
+`docs.enabled`: `None` (default) exposes `/docs`, `/redoc`, and `/openapi.json` only in `development`. Set `true` to force-on (e.g. staging) or `false` to force-off.
 
 ## Environment Variable Overrides
 
@@ -327,38 +297,30 @@ except Exception as e:
 ### Redis Configuration Errors
 
 ```python
-from fastapi_factory_utilities.core.utils.redis_configs import (
+from fastapi_factory_utilities.core.plugins.redis_plugin.builder import (
     build_redis_credentials_config,
 )
+from fastapi_factory_utilities.core.plugins.redis_plugin import RedisPluginConfigError
 
 try:
     config = build_redis_credentials_config(application=app)
-except FileNotFoundError:
-    # Handle missing configuration
-    logger.warning("Redis configuration not found, using defaults")
-    config = RedisCredentialsConfig()  # Use defaults
-except ValidationError as e:
-    # Handle invalid Redis configuration
-    logger.error("Invalid Redis configuration", errors=e.errors())
+except RedisPluginConfigError as e:
+    logger.error("Redis configuration missing or invalid", error=e)
     raise
 ```
 
 ### RabbitMQ Configuration Errors
 
 ```python
-from fastapi_factory_utilities.core.utils.rabbitmq_configs import (
-    build_rabbitmq_credentials_config,
+from fastapi_factory_utilities.core.plugins.aiopika_plugin import (
+    RabbitMQCredentialsConfig,
+    AiopikaPluginConfigError,
 )
 
 try:
-    config = build_rabbitmq_credentials_config(package_name="my_app")
-except FileNotFoundError:
-    # Handle missing configuration
-    logger.warning("RabbitMQ configuration not found")
-    raise
-except ValidationError as e:
-    # Handle invalid RabbitMQ configuration
-    logger.error("Invalid RabbitMQ configuration", errors=e.errors())
+    config = RabbitMQCredentialsConfig(amqp_url=amqp_url)
+except (AiopikaPluginConfigError, ValidationError) as e:
+    logger.error("Invalid RabbitMQ configuration", error=e)
     raise
 ```
 
@@ -375,5 +337,5 @@ except ValidationError as e:
 
 - `src/fastapi_factory_utilities/core/utils/yaml_reader.py` - YamlFileReader
 - `src/fastapi_factory_utilities/core/app/config.py` - GenericConfigBuilder, RootConfig
-- `src/fastapi_factory_utilities/core/utils/redis_configs.py` - RedisCredentialsConfig
-- `src/fastapi_factory_utilities/core/utils/rabbitmq_configs.py` - RabbitMQCredentialsConfig
+- `src/fastapi_factory_utilities/core/plugins/redis_plugin/configs.py` - RedisCredentialsConfig
+- `src/fastapi_factory_utilities/core/plugins/aiopika_plugin/configs.py` - RabbitMQCredentialsConfig

@@ -19,19 +19,21 @@ The plugin integrates Taskiq with FastAPI for distributed task processing.
 ### Configuration
 
 ```python
-from fastapi_factory_utilities.core.plugins.taskiq_plugins import TaskiqPlugin
-from fastapi_factory_utilities.core.utils.redis_configs import RedisCredentialsConfig
+from fastapi_factory_utilities.core.plugins.taskiq_plugin import TaskiqPlugin
+from fastapi_factory_utilities.core.plugins.redis_plugin import RedisCredentialsConfig
 
-# With automatic Redis config from application
+# With automatic Redis config from application.yaml (`redis.url`)
 plugin = TaskiqPlugin(name_suffix="my_app")
 
-# With custom Redis config
-redis_config = RedisCredentialsConfig(url="redis://localhost:6379")
+# With custom Redis config (own pool keys still live under name_suffix)
+redis_config = RedisCredentialsConfig(url="redis://localhost:6379/0")
 plugin = TaskiqPlugin(
     name_suffix="my_app",
     redis_credentials_config=redis_config,
 )
 ```
+
+`TaskiqPlugin` defaults `stream_maxlen=10_000` (approximate) on `RedisStreamBroker` so Valkey streams are trimmed on publish.
 
 ### Register Hook
 
@@ -57,7 +59,7 @@ The scheduler component manages task registration and execution.
 ### Register Tasks
 
 ```python
-from fastapi_factory_utilities.core.plugins.taskiq_plugins.schedulers import SchedulerComponent
+from fastapi_factory_utilities.core.plugins.taskiq_plugin.schedulers import SchedulerComponent
 
 scheduler = SchedulerComponent(name_suffix="my_app")
 scheduler.configure(redis_connection_string="redis://localhost:6379", app=fastapi_app)
@@ -105,7 +107,7 @@ scheduled_task = ScheduledTask(
 ### Plugin Setup
 
 ```python
-from fastapi_factory_utilities.core.plugins.taskiq_plugins import TaskiqPlugin
+from fastapi_factory_utilities.core.plugins.taskiq_plugin import TaskiqPlugin
 
 class MyAppBuilder(ApplicationGenericBuilder[MyApp]):
     def get_default_plugins(self):
@@ -128,7 +130,7 @@ class MyAppBuilder(ApplicationGenericBuilder[MyApp]):
 
 ```python
 from fastapi import Request, Depends
-from fastapi_factory_utilities.core.plugins.taskiq_plugins.depends import (
+from fastapi_factory_utilities.core.plugins.taskiq_plugin import (
     depends_scheduler_component,
 )
 
@@ -159,29 +161,41 @@ All Taskiq Redis keys are namespaced under `name_suffix`:
 | Stream broker | `{name_suffix}:taskiq:stream` |
 | Consumer group | `{name_suffix}:taskiq:consumers` |
 | Schedule source | `{name_suffix}:taskiq:schedule` |
+| Cron lock | `{name_suffix}:taskiq:cron-lock:{task_name}:{YYYYMMDDHHMM}` |
 
-Use a stable, per-service `name_suffix` so Valkey/Redis ACLs of the form `~{svc}:*` cover the service. Changing `name_suffix` or upgrading past 5.15 without migrating schedule keys orphans pending schedules.
+Use a stable, per-service `name_suffix` so Valkey/Redis ACLs of the form `~{svc}:*` cover the service. Changing `name_suffix` without migrating schedule keys orphans pending schedules.
 
-### Configuration
+The Redis plugin is a **separate** pool (`RedisPlugin`). Taskiq owns its own broker/result connections; do not share the plugin client as the Taskiq backend.
+
+### YAML Configuration
 
 ```yaml
 redis:
-  host: "localhost"
-  port: 6379
-  password: ""
-  database: 0
-  ssl: false
+  url: "${REDIS_URL:redis://localhost:6379/0}"
 ```
 
 ## Prune stale schedules (FFU ≥ 5.14)
 
-After registration / startup, call `prune_unregistered_schedules()` to delete persisted cron entries whose task name is no longer registered (self-heals leftover `heartbeat` schedules from older FFU versions):
+After registration / startup, call `prune_unregistered_schedules()` to delete persisted cron entries whose task name is no longer registered:
 
 ```python
 removed = await scheduler.prune_unregistered_schedules()
 ```
 
-### Heartbeat auto-schedule removed (FFU 5.13.2)
+Register or refresh a cron with a stable id (`schedule_id == task_name`):
+
+```python
+await scheduler.ensure_cron_schedule("cleanup", "0 * * * *")
+```
+
+Idempotent across pods: a matching row is a no-op; legacy random-id rows and cron-expression changes are deleted then re-inserted.
+
+## Cron single-flight (FFU ≥ 7.0)
+
+API + worker (and multi-replica) pods each run a scheduler loop. Duplicate kicks in the same UTC minute are suppressed two ways:
+
+1. `MinuteGuardSchedulerLoop` refuses a second kick in the same UTC minute (upstream Taskiq's 60s wall-clock guard can fire twice around a minute boundary).
+2. Redis `SET NX` lock `{name_suffix}:taskiq:cron-lock:{task_name}:{YYYYMMDDHHMM}` with TTL 70s. The lock key uses the scheduler tick (`pending_ticks`), not wall clock at send time. If the Redis client is missing, the lock **fails open** (the kick proceeds).
 
 `SchedulerComponent` no longer auto-schedules a task named `heartbeat`. Register and schedule heartbeat yourself if you need it.
 
@@ -300,15 +314,16 @@ async def scheduled_cleanup():
 
 ## Best Practices
 
-1. **Name Suffix**: Use a stable per-service `name_suffix` (Redis key ACL boundary since 5.15)
-2. **Task Naming**: Use descriptive task names
+1. **Name Suffix**: Use a stable per-service `name_suffix` (Redis key ACL boundary)
+2. **Task Naming**: Use descriptive task names; `ensure_cron_schedule` uses `task_name` as `schedule_id`
 3. **Prune**: Call `prune_unregistered_schedules()` after deploy when dropping or renaming tasks
 4. **Error Handling**: Handle task failures gracefully
 5. **Result Timeout**: Configure appropriate result expiration times
 6. **Consumer Groups**: Use consumer groups for task distribution
+7. **Stream bound**: Leave `stream_maxlen` at 10_000 unless a service has a measured reason to raise it
 
 ## Reference
 
-- `src/fastapi_factory_utilities/core/plugins/taskiq_plugins/` - Plugin implementation
-- `src/fastapi_factory_utilities/core/plugins/taskiq_plugins/schedulers.py` - SchedulerComponent
-- `src/fastapi_factory_utilities/core/plugins/taskiq_plugins/plugin.py` - TaskiqPlugin
+- `src/fastapi_factory_utilities/core/plugins/taskiq_plugin/` - Plugin implementation
+- `src/fastapi_factory_utilities/core/plugins/taskiq_plugin/schedulers.py` - SchedulerComponent, MinuteGuardSchedulerLoop
+- `src/fastapi_factory_utilities/core/plugins/taskiq_plugin/plugins.py` - TaskiqPlugin

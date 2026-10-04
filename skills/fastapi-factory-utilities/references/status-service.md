@@ -111,6 +111,21 @@ class MyService(MonitoredAbstract):
             ))
 ```
 
+## PluginStatusMixin
+
+Shared StatusService registration for plugins with an external system (`core.plugins.status`). Mix into `PluginAbstract`. Disconnects arm not-ready after `DISCONNECT_GRACE_S` (15s) so a single reconnect does not flap readiness.
+
+| Plugin | Reports readiness | Notes |
+|--------|-------------------|-------|
+| `AiopikaPlugin` | yes | `MESSAGE_BROKER` / `RabbitMQ` |
+| `TaskiqPlugin` | yes | `TASK_QUEUE` / `Redis`; also watches worker **and** scheduler loop tasks |
+| `RedisPlugin` | yes | `CACHE` / `Redis` |
+| `S3Plugin` | yes | `STORAGE` / `S3` |
+| `AioHttpClientPlugin` | opt-in | set `affects_readiness: true` on the named HTTP dependency |
+| `OpenTelemetryPlugin` | no | not a data path |
+
+If AMQP telemetry is enabled, register `OpenTelemetryPlugin` before `AiopikaPlugin`.
+
 ## Status Types
 
 ### HealthStatusEnum
@@ -135,12 +150,14 @@ class Status(BaseModel):
 
 ### ComponentTypeEnum
 
-- `APPLICATION` - Application-level components
+- `SERVICE` - Application-level components
 - `DATABASE` - Database connections
-- `MESSAGE_BROKER` - Message broker connections
-- `HTTP_CLIENT` - HTTP client connections
-- `CACHE` - Cache connections
-- `EXTERNAL_SERVICE` - External service connections
+- `CACHE` - Redis / Valkey
+- `STORAGE` - Object storage (S3)
+- `MESSAGE_BROKER` - RabbitMQ
+- `SEARCH_ENGINE` - Search backends
+- `TASK_QUEUE` - Taskiq
+- `OTHER` - Catch-all
 
 ## Status Calculation Strategies
 
@@ -247,4 +264,5 @@ class DatabaseComponent(MonitoredAbstract):
 ## Reference
 
 - `src/fastapi_factory_utilities/core/services/status/` - StatusService implementation
+- `src/fastapi_factory_utilities/core/plugins/status.py` - PluginStatusMixin
 - `src/fastapi_factory_utilities/core/utils/status.py` - MonitoredAbstract

@@ -72,9 +72,9 @@ class JWTBearerAuthenticationConfig(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     authorized_algorithms: list[str] = Field(default_factory=lambda: list(get_default_algorithms().keys()))
-    authorized_audiences: list[str] | None = None
+    authorized_audiences: list[str]  # required, min_length=1; always passed to PyJWT decode
     issuer: OAuth2Issuer
-    audience: str | None = None
+    audience: str | None = None  # deprecated alias; fills authorized_audiences when that field is omitted
 
     authorized_locations: list[JWTLocation] = Field(default_factory=lambda: [JWTLocation.AUTHORIZATION_BEARER])
     header_name: str | None = None
@@ -87,10 +87,10 @@ class JWTBearerAuthenticationConfig(BaseModel):
 ```
 
 - `authorized_algorithms` MUST be in PyJWT's `requires_cryptography` set; e.g. `["RS256"]`.
-- `authorized_audiences` accepts a comma-separated string or list; trimmed and deduplicated.
-- `audience` lives on the config (moved out of `BaseApplicationConfig` in FFU v0.19.2) and is used as the default audience for signing/verifying.
+- `authorized_audiences` is required and non-empty. Accepts a comma-separated string or list; trimmed and deduplicated. Always passed to PyJWT decode (fail closed).
+- `audience` is a deprecated alias. When `authorized_audiences` is omitted it becomes a one-element list. When both are set, `authorized_audiences` wins and a `DeprecationWarning` is still emitted.
 - `authorized_locations` selects extraction strategies; combine `HEADER`, `AUTHORIZATION_BEARER`, and `COOKIE` as needed (custom `header_name` / `cookie_name` required for those locations).
-- When `cache_enabled` is true, introspection results are keyed by JWT `jti` in a process-local `cacheout` cache; TTL is `min(cache_ttl_seconds, token remaining lifetime)`. Disable in tests or multi-process embed setups that must not share cache state.
+- When `cache_enabled` is true, introspection results are keyed by `build_introspect_cache_key(issuer=..., jti=...)` (`issuer` + NUL + `jti`) in a process-local `cacheout` cache. Cache hits re-check `exp`. TTL is `min(cache_ttl_seconds, token remaining lifetime)`. Disable in tests or multi-process embed setups that must not share cache state.
 
 `JWTBearerAuthenticationConfigBuilder(key=...)` loads a config from `application.yaml` under `jwt_configs.{key}`. `DependsJWTBearerAuthenticationConfig.import_to_state(state, config, key=...)` stores the config on `app.state` so dependencies can fetch the right key per route stack (Velmios uses `"internal"` and `"customer"`).
 
@@ -209,7 +209,7 @@ The 401 vs 403 split (v5.0.1) gives downstream observability a clean signal: 401
 ```mermaid
 flowchart TD
   client[Client] --> api[FastAPIApp]
-  api --> jwtService[JWTAuthenticationService]
+  api --> jwtService[JWTAuthenticationServiceAbstract]
   jwtService --> decoder[GenericJWTBearerTokenDecoder]
   jwtService --> verifier[JWTVerifier]
   decoder --> jwkStore[JWKStoreMemory]
@@ -226,7 +226,7 @@ flowchart TD
 
 1. Populate the JWKS store from the trusted Hydra well-known endpoint; refresh periodically in production.
 2. Use only asymmetric algorithms (e.g. `RS256`) for Bearer tokens; never `none` or HMAC.
-3. Always set `authorized_audiences` and `issuer`.
+3. Always set `authorized_audiences` (required) and `issuer`. Do not rely on the deprecated `audience` alias.
 4. Layer custom verifiers for scopes and claim checks; keep the decoder free of business logic.
 5. Inject the config through `DependsJWTBearerAuthenticationConfig(key=...)` so per-route stacks can target different issuers (internal vs customer).
 6. Map `ExpiredJWTError` to 403 deliberately — clients that expect 401 must refresh on either status code.
