@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **fastapi-factory-utilities** skill: document continuous Mongo document schema migration (skill metadata **2.4.0**).
+  - `schema_version` on `BaseDocument` / `PersistedEntity`; `CURRENT_SCHEMA_VERSION` + `SchemaMigration` chain.
+  - In-memory read upgrade; non-blocking startup batch sweep (`update_one` per doc, no bulk write).
+  - `SchemaMigrationLock` / default `MongoSchemaMigrationLock` lease hook; expand then contract release rule.
+
 - **fastapi-factory-utilities** skill: align with library **v7.2.x** (skill metadata **2.3.0**).
   - **AioPika**: `precheck` returns `MessageDeliveryOutcome`; poison is `requeue=False`; document `PREFETCH_COUNT` and `on_gate_saturated`.
   - **JWT**: `authorized_audiences` required; introspect cache keyed by issuer + NUL + `jti`, hits re-check `exp`.

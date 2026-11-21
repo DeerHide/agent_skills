@@ -1,9 +1,9 @@
 ---
 name: fastapi-factory-utilities
-description: Build FastAPI microservices with plugins, typed PUT updates and reconciliation, message brokers, Redis/Valkey, S3/MinIO via aioboto3, OAuth2/OIDC, OpenTelemetry, CSRF and validation handlers, Uvicorn/Hypercorn/Granian, audit field redaction, and structured logging.
+description: Build FastAPI microservices with plugins, typed PUT updates and reconciliation, message brokers, Redis/Valkey, S3/MinIO via aioboto3, OAuth2/OIDC, OpenTelemetry, CSRF and validation handlers, Uvicorn/Hypercorn/Granian, audit field redaction, continuous Mongo schema_version migrations, and structured logging.
 metadata:
   author: Deerhide
-  version: 2.3.0
+  version: 2.4.0
 ---
 # FastAPI Factory Utilities
 
@@ -15,6 +15,7 @@ A library for building production-ready FastAPI microservices with a plugin-base
 - Use this skill when implementing plugin-based architectures and lifecycle hooks (`configure`, `on_startup`, `on_shutdown`; plugins use `on_load` / `on_startup` / `on_shutdown`).
 - Use this skill when setting up OAuth2/OIDC authentication with Hydra (introspection, JWKS, optional introspect cache) or Kratos (session, admin identity, `delete_session`).
 - Use this skill when configuring MongoDB with Beanie ODM, with `PersistedEntity` mixing in `SearchableEntity` and `ApiResponseModelAbstract`, including optional CSFLE via `Settings.encrypted_fields`.
+- Use this skill when implementing continuous document schema migration (`schema_version`, `SchemaMigration`, startup batch sweep, `SchemaMigrationLock` / `MongoSchemaMigrationLock`).
 - Use this skill when implementing RabbitMQ message brokers with AioPika (`AbstractManagedListener`, `PREFETCH_COUNT` / `prefetch_count`, `on_gate_saturated`, concurrency gates, delay-retry topology).
 - Use this skill when setting up background task processing with Taskiq and Redis (`name_suffix` key prefixes, `prune_unregistered_schedules`, `ensure_cron_schedule`, cron `SET NX` lock).
 - Use this skill when integrating MinIO or S3-compatible object storage via the async `S3Plugin` (`aioboto3`, named buckets, `S3BucketDepends`).
@@ -66,7 +67,7 @@ For testing, several plugins provide mockers to create mock resources:
 
 | Reference | Description |
 |-----------|-------------|
-| [ODM Plugin (MongoDB)](references/odm-plugin.md) | MongoDB/Beanie integration, generic `PersistedEntity[Id]`, `ODMQueryBuilder` / `ODMFindQuery`, `id` → `_id` mapping, CSFLE |
+| [ODM Plugin (MongoDB)](references/odm-plugin.md) | MongoDB/Beanie integration, generic `PersistedEntity[Id]`, `ODMQueryBuilder` / `ODMFindQuery`, `id` → `_id` mapping, CSFLE, continuous `schema_version` migrations |
 | [Repository Pattern](references/repository-pattern.md) | Type-safe data access, in-memory testing, `PersistedAuditableEntity` flow |
 | [AioHttp HTTP Client](references/aiohttp.md) | HTTP client with connection pooling, mocking utilities |
 | [AioPika RabbitMQ](references/aiopika.md) | Message publishing/consuming, `AbstractManagedListener`, `PREFETCH_COUNT`, `on_gate_saturated`, concurrency gates, delay-retry topology |
@@ -110,3 +111,4 @@ For testing, several plugins provide mockers to create mock resources:
 8. **PUT updates** — Mark client-writable fields with `UpdateableField`, call `reconcile_update_request`, and surface `changed`, `ignored_paths`, and `unchanged_paths` in audit metadata.
 9. **Exception handling** — Always register validation, CSRF, and (in downstream apps) security exception handlers at app configuration time so that 401/403/422 envelopes stay consistent.
 10. **ASGI server choice** — Prefer `build_and_serve` and select Uvicorn, Hypercorn, or Granian from configuration.
+11. **Document schema migrations** — Ship expand (add/copy fields) and contract (`$unset`) as separate releases; do not `$unset` a field the previous process still reads. Keep `schema_version` on the entity so saves carry it.
